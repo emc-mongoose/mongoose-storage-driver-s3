@@ -32,8 +32,7 @@ after_success:
 - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
 - docker push $REPO
 - export REPO=emcmongoose/mongoose-storage-driver-s3-service
-- export DRIVER_VERSION=$TAG
-- docker build --build-arg DRIVER_VERSION=$TAG -f docker/Dockerfile.storage-driver-service -t $REPO:$COMMIT .
+- docker build --build-arg MONGOOSE_VERSION=next -f docker/Dockerfile.storage-driver-service -t $REPO:$COMMIT .
 - docker tag $REPO:$COMMIT $REPO:$TAG
 - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
 - docker push $REPO
