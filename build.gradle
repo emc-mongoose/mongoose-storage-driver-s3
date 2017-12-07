@@ -11,7 +11,7 @@ apply plugin: "maven"
 apply plugin: "signing"
 
 group = "com.github.emc-mongoose"
-version = "0.1.3"
+version = "0.1.4"
 
 tasks.withType(JavaCompile) {
 	sourceCompatibility = JavaVersion.VERSION_1_8
@@ -31,7 +31,7 @@ repositories {
 
 ext {
 	depVersion = [
-		commonsJava: "[1.3.0,)",
+		commonsJava: "[1.4.0,)",
 		disruptor : "3.3.4",
 		jackson: "2.9.1",
 		log4j: "2.8.2",
