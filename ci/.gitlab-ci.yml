@@ -97,6 +97,10 @@ build_docker_image:
     - export VERSION=$(cat build.gradle | grep version\ = | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
     - docker load < ${IMAGE_FILE_NAME}
+    - ls -l src
+    - ls -l src/test
+    - ls -l src/test/robot
+    - ls -l src/test/robot/api
     - ls -l src/test/robot/api/storage
     - robot --outputdir build/robotest --suite ${SUITE} --include ${TEST} src/test/robot
   after_script:
