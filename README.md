@@ -1,30 +1,29 @@
-[![master](https://img.shields.io/travis/emc-mongoose/mongoose-storage-driver-s3/master.svg)](https://travis-ci.org/emc-mongoose/mongoose-storage-driver-s3)
-[![downloads](https://img.shields.io/github/downloads/emc-mongoose/mongoose-storage-driver-s3/total.svg)](https://github.com/emc-mongoose/mongoose-storage-driver-s3/releases)
-[![release](https://img.shields.io/github/release/emc-mongoose/mongoose-storage-driver-s3.svg)]()
+[![Gitter chat](https://badges.gitter.im/emc-mongoose.png)](https://gitter.im/emc-mongoose)
+[![Issue Tracker](https://img.shields.io/badge/Issue-Tracker-red.svg)](https://mongoose-issues.atlassian.net/projects/GOOSE)
+[![CI status](https://gitlab.com/emc-mongoose/mongoose-storage-driver-s3/badges/master/pipeline.svg)](https://gitlab.com/emc-mongoose/mongoose-storage-driver-s3/commits/master)
+[![Tag](https://img.shields.io/github/tag/emc-mongoose/mongoose-storage-driver-s3.svg)](https://github.com/emc-mongoose/mongoose-storage-driver-s3/tags)
+[![Maven metadata URL](https://img.shields.io/maven-metadata/v/http/central.maven.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3/maven-metadata.xml.svg)](http://central.maven.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3)
+[![Sonatype Nexus (Releases)](https://img.shields.io/nexus/r/http/oss.sonatype.org/com.github.emc-mongoose/mongoose-storage-driver-s3.svg)](http://oss.sonatype.org/com.github.emc-mongoose/mongoose-storage-driver-s3)
 [![Docker Pulls](https://img.shields.io/docker/pulls/emcmongoose/mongoose-storage-driver-s3.svg)](https://hub.docker.com/r/emcmongoose/mongoose-storage-driver-s3/)
 
-[Mongoose](https://github.com/emc-mongoose/mongoose-base)'s driver
-generic Amazon S3 cloud storage.
+# S3 Storage Driver
 
-# Introduction
-
-The storage driver extends the Mongoose's [Abstract HTTP Storage Driver](https://github.com/emc-mongoose/mongoose-base/wiki/v3.6-Extensions#231-http-storage-driver)
-
-# Features
+## 1. Features
 
 * API version: 2006-03-01
 * Authentification:
-    * Uid/secret key pair to sign each request
+    * [v2](https://docs.aws.amazon.com/general/latest/gr/signature-version-2.html) (by default)
+    * [v4](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html)
 * SSL/TLS
 * Item types:
-    * `data`
-    * `path`
+    * `data` (--> "object")
+    * `path` (--> "bucket")
 * Automatic destination path creation on demand
 * Path listing input (with XML response payload)
 * Data item operation types:
     * `create`
-        * copy
-        * Multipart Upload
+        * [copy](../../../../../../doc/design/copy_mode/README.md)
+        * [Multipart Upload](../../../../../../src/main/java/com/emc/mongoose/base/item/op/composite/README.md)
     * `read`
         * full
         * random byte ranges
@@ -42,89 +41,22 @@ The storage driver extends the Mongoose's [Abstract HTTP Storage Driver](https:/
     * `delete`
     * `noop`
 
-# Usage
-
-Latest stable pre-built jar file is available at:
-https://github.com/emc-mongoose/mongoose-storage-driver-s3/releases/download/latest/mongoose-storage-driver-s3.jar
-This jar file may be downloaded manually and placed into the `ext`
-directory of Mongoose to be automatically loaded into the runtime.
+## 2. Usage
 
 ```bash
-java -jar mongoose-<VERSION>/mongoose.jar \
+java -jar mongoose-<VERSION>.jar \
     --storage-driver-type=s3 \
     ...
 ```
 
-## Notes
+### 2.1. Configuration Reference
+
+| Name                                           | Type         | Default Value    | Description                                      |
+|:-----------------------------------------------|:-------------|:-----------------|:-------------------------------------------------|
+| storage-net-http-fsAccess                      | Flag | false | Specifies whether filesystem access is enabled or not
+| storage-net-http-versioning                    | Flag | false | Specifies whether the versioning storage feature is used or not
+
+### 2.2. Notes
 
 * A **bucket** may be specified with `item-input-path` either `item-output-path` configuration option
-* Multipart upload should be enabled using the `item-data-ranges-threshold` configuration parameter
-
-## Docker
-
-### Standalone
-
-```bash
-docker run \
-    --network host \
-    --entrypoint mongoose \
-    emcmongoose/mongoose-storage-driver-s3 \
-    -jar /opt/mongoose/mongoose.jar \
-    --storage-type=s3 \
-    ...
-```
-
-### Distributed
-
-#### Drivers
-
-```bash
-docker run \
-    --network host \
-    --expose 1099 \
-    emcmongoose/mongoose-storage-driver-service-s3
-```
-
-#### Controller
-
-```bash
-docker run \
-    --network host \
-    --entrypoint mongoose \
-    emcmongoose/mongoose-base \
-    -jar /opt/mongoose/mongoose.jar \
-    --storage-driver-remote \
-    --storage-driver-addrs=<ADDR1,ADDR2,...> \
-    --storage-driver-type=s3 \
-    ...
-```
-
-## Advanced
-
-### Sources
-
-```bash
-git clone https://github.com/emc-mongoose/mongoose-storage-driver-s3.git
-cd mongoose-storage-driver-s3
-```
-
-### Test
-
-```
-./gradlew clean test
-```
-
-### Build
-
-```bash
-
-./gradlew clean jar
-```
-
-### Embedding
-
-```groovy
-compile group: 'com.github.emc-mongoose', name: 'mongoose-storage-driver-s3', version: '<VERSION>'
-```
-
-
+* Multipart upload should be enabled using the `item-data-ranges-threshold` configuration option
