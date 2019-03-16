@@ -81,7 +81,6 @@ dependencies {
 		"com.github.akurilov:confuse:${depVersion.confuse}",
 		"com.github.akurilov:confuse-io-yaml:${depVersion.confuseIoYaml}",
 		"com.github.akurilov:java-commons:${depVersion.javaCommons}",
-		"com.fasterxml.jackson.core:jackson-core:${depVersion.jackson}",
 		"io.netty:netty-handler:${depVersion.netty}",
 		"org.apache.logging.log4j:log4j-api:${depVersion.log4j}",
 		"org.apache.logging.log4j:log4j-core:${depVersion.log4j}",
