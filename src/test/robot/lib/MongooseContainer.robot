@@ -32,15 +32,15 @@ Execute Mongoose Scenario
     ${docker_env_vars} =  Evaluate  ' '.join(['-e %s=%s' % (key, value) for (key, value) in ${env}.items()])
     ${host_working_dir} =  Get Environment Variable  HOST_WORKING_DIR
     Log  Host working dir: ${host_working_dir}
-    ${mongoose_version} =  Get Environment Variable  MONGOOSE_VERSION
-    ${image_version} =  Get Environment Variable  MONGOOSE_IMAGE_VERSION
+    ${base_version} =  Get Environment Variable  BASE_VERSION
+    ${image_version} =  Get Environment Variable  VERSION
     ${cmd} =  Catenate  SEPARATOR= \\\n\t
     ...  docker run
     ...  --name ${MONGOOSE_CONTAINER_NAME}
     ...  --network host
     ...  ${docker_env_vars}
     ...  --volume ${host_working_dir}/${shared_data_dir}:${MONGOOSE_CONTAINER_DATA_DIR}
-    ...  --volume ${host_working_dir}/${LOG_DIR}:/root/.mongoose/${mongoose_version}/log
+    ...  --volume ${host_working_dir}/${LOG_DIR}:/root/.mongoose/${base_version}/log
     ...  ${MONGOOSE_IMAGE_NAME}:${image_version}
     ...  ${args}
     ${std_out} =  Run  ${cmd}
