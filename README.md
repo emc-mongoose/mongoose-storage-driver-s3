@@ -60,3 +60,4 @@ java -jar mongoose-<VERSION>.jar \
 
 * A **bucket** may be specified with `item-input-path` either `item-output-path` configuration option
 * Multipart upload should be enabled using the `item-data-ranges-threshold` configuration option
+* The default storage port is set to 9020 for the docker image
