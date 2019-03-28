@@ -22,7 +22,7 @@ ${MONGOOSE_SHARED_ARGS} =  --storage-driver-type=s3 --storage-net-node-port=${S3
 *** Test Cases ***
 Should Copy Objects Using Bucket Listing
     ${step_id} =  Set Variable  copy_objects_using_bucket_listing
-    ${object_count_limit} =  Convert To Integer  1000
+    ${object_count_limit} =  Convert To Integer  10
     Remove Directory  ${LOG_DIR}/${step_id}  recursive=True
     ${args} =  Catenate  SEPARATOR= \\\n\t
     ...  --item-data-size=10KB
