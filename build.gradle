@@ -25,7 +25,7 @@ repositories {
 
 description = "Mongoose is a high-load storage performance testing tool"
 group = "com.github.emc-mongoose"
-version = "4.2.3"
+version = "4.2.5"
 sourceCompatibility = 11
 targetCompatibility = 11
 
@@ -40,10 +40,10 @@ ext {
 		javassist          : "3.23.1-GA",
 		junit              : "4.12",
 		log4j              : "2.8.2",
-		mongooseBase       : "4.2.1",
-		mongooseStorageDriverCoop: "4.2.1",
-		mongooseStorageDriverNetty: "4.2.1",
-		mongooseStorageDriverHttp: "4.2.1",
+		mongooseBase       : "4.2.5",
+		mongooseStorageDriverCoop: "4.2.5",
+		mongooseStorageDriverNetty: "4.2.5",
+		mongooseStorageDriverHttp: "4.2.5",
 		netty              : "4.1.25.Final",
 		scala              : "2.12.6",
 		slf4j              : "1.7.25",
@@ -252,7 +252,9 @@ task dockerBuildImage(type: DockerBuildImage) {
 	inputDir = project.projectDir
 	buildArgs = [
 		"BASE_VERSION": depVersion.mongooseBase,
-		"BASE_DRIVER_VERSION": depVersion.mongooseStorageDriverHttp,
+		"STORAGE_DRIVER_COOP_VERSION": depVersion.mongooseStorageDriverHttp,
+		"STORAGE_DRIVER_NETTY_VERSION": depVersion.mongooseStorageDriverNetty,
+		"STORAGE_DRIVER_HTTP_VERSION": depVersion.mongooseStorageDriverHttp,
 		"VERSION": version,
 	]
 	dockerFile = project.file("ci${File.separator}docker${File.separator}Dockerfile")
