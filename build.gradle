@@ -40,7 +40,7 @@ ext {
 		javassist          : "3.23.1-GA",
 		junit              : "4.12",
 		log4j              : "2.8.2",
-		mongooseBase       : "4.2.1",
+		mongooseBase       : "4.2.2",
 		mongooseStorageDriverCoop: "4.2.3",
 		mongooseStorageDriverNetty: "4.2.3",
 		mongooseStorageDriverHttp: "4.2.3",
