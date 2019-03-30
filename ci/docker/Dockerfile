@@ -21,5 +21,5 @@ RUN mv -f /tmp/mongoose-storage-driver-s3-*.jar $HOME/.mongoose/${BASE_VERSION}/
     && chmod +x /opt/mongoose/entrypoint_storage_driver_s3.sh \
     && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-coop/${STORAGE_DRIVER_COOP_VERSION}/mongoose-storage-driver-coop-${STORAGE_DRIVER_COOP_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-storage-driver-coop.jar \
     && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-netty/${STORAGE_DRIVER_NETTY_VERSION}/mongoose-storage-driver-netty-${STORAGE_DRIVER_NETTY_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-storage-driver-netty.jar \
-    && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-http/${STORAGE_DRIVER_NETTY_VERSION}/mongoose-storage-driver-http-${STORAGE_DRIVER_NETTY_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-storage-driver-http.jar
+    && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-http/${STORAGE_DRIVER_HTTP_VERSION}/mongoose-storage-driver-http-${STORAGE_DRIVER_HTTP_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-storage-driver-http.jar
 ENTRYPOINT ["/opt/mongoose/entrypoint_storage_driver_s3.sh"]
