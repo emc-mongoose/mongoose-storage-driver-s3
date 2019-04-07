@@ -46,10 +46,10 @@ public final class BucketXmlListingHandler<I extends Item>
 	@Override
 	public final void startElement(
 					final String uri, final String localName, final String qName, Attributes attrs) throws SAXException {
-		isInsideItem = isInsideItem || AmzS3Api.QNAME_ITEM.equals(qName);
-		itIsItemId = isInsideItem && AmzS3Api.QNAME_ITEM_ID.equals(qName);
-		itIsItemSize = isInsideItem && AmzS3Api.QNAME_ITEM_SIZE.equals(qName);
-		itIsTruncateFlag = AmzS3Api.QNAME_IS_TRUNCATED.equals(qName);
+		isInsideItem = isInsideItem || S3Api.QNAME_ITEM.equals(qName);
+		itIsItemId = isInsideItem && S3Api.QNAME_ITEM_ID.equals(qName);
+		itIsItemSize = isInsideItem && S3Api.QNAME_ITEM_SIZE.equals(qName);
+		itIsTruncateFlag = S3Api.QNAME_IS_TRUNCATED.equals(qName);
 		super.startElement(uri, localName, qName, attrs);
 	}
 
@@ -58,11 +58,11 @@ public final class BucketXmlListingHandler<I extends Item>
 	public final void endElement(
 					final String uri, final String localName, final String qName) throws SAXException {
 
-		itIsItemId = itIsItemId && !AmzS3Api.QNAME_ITEM_ID.equals(qName);
-		itIsItemSize = itIsItemSize && !AmzS3Api.QNAME_ITEM_SIZE.equals(qName);
-		itIsTruncateFlag = itIsTruncateFlag && !AmzS3Api.QNAME_IS_TRUNCATED.equals(qName);
+		itIsItemId = itIsItemId && ! S3Api.QNAME_ITEM_ID.equals(qName);
+		itIsItemSize = itIsItemSize && ! S3Api.QNAME_ITEM_SIZE.equals(qName);
+		itIsTruncateFlag = itIsTruncateFlag && ! S3Api.QNAME_IS_TRUNCATED.equals(qName);
 
-		if (isInsideItem && AmzS3Api.QNAME_ITEM.equals(qName)) {
+		if (isInsideItem && S3Api.QNAME_ITEM.equals(qName)) {
 			isInsideItem = false;
 
 			long size = -1;
@@ -75,7 +75,7 @@ public final class BucketXmlListingHandler<I extends Item>
 									Level.WARN, e, "Data object size should be a 64 bit number");
 				}
 			} else {
-				Loggers.ERR.trace("No \"{}\" element or empty", AmzS3Api.QNAME_ITEM_SIZE);
+				Loggers.ERR.trace("No \"{}\" element or empty", S3Api.QNAME_ITEM_SIZE);
 			}
 
 			if (oid != null && oid.length() > 0 && size > -1) {

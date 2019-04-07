@@ -59,7 +59,7 @@ import org.apache.logging.log4j.Level;
 import org.xml.sax.SAXException;
 
 /** Created by kurila on 01.08.16. */
-public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
+public class S3StorageDriver<I extends Item, O extends Operation<I>>
 				extends HttpStorageDriverBase<I, O> {
 
 	private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
@@ -68,9 +68,9 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 					BUCKET_LIST_QUERY = ThreadLocal.withInitial(StringBuilder::new);
 	private static final ThreadLocal<Map<String, Mac>> MAC_BY_SECRET = ThreadLocal.withInitial(HashMap::new);
 	private static final Function<String, Mac> GET_MAC_BY_SECRET = secret -> {
-		final var secretKey = new SecretKeySpec(secret.getBytes(UTF_8), AmzS3Api.SIGN_METHOD);
+		final var secretKey = new SecretKeySpec(secret.getBytes(UTF_8), S3Api.SIGN_METHOD);
 		try {
-			final var mac = Mac.getInstance(AmzS3Api.SIGN_METHOD);
+			final var mac = Mac.getInstance(S3Api.SIGN_METHOD);
 			mac.init(secretKey);
 			return mac;
 		} catch (final NoSuchAlgorithmException | InvalidKeyException e) {
@@ -81,7 +81,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 	protected final boolean fsAccess;
 	protected final boolean versioning;
 
-	public AmzS3StorageDriver(
+	public S3StorageDriver(
 					final String stepId,
 					final DataInput itemDataInput,
 					final Config storageConfig,
@@ -167,7 +167,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 
 		// check the bucket versioning state
-		final var bucketVersioningReqUri = bucketUri + "?" + AmzS3Api.URL_ARG_VERSIONING;
+		final var bucketVersioningReqUri = bucketUri + "?" + S3Api.URL_ARG_VERSIONING;
 		reqHeaders = new DefaultHttpHeaders();
 		reqHeaders.set(HttpHeaderNames.HOST, nodeAddr);
 		reqHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
@@ -225,13 +225,13 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 		final HttpHeaders reqHeaders = new DefaultHttpHeaders();
 		reqHeaders.set(HttpHeaderNames.HOST, nodeAddr);
 		reqHeaders.set(HttpHeaderNames.DATE, DateUtil.formatNowRfc1123());
-		reqHeaders.set(HttpHeaderNames.CONTENT_LENGTH, AmzS3Api.VERSIONING_ENABLE_CONTENT.length);
+		reqHeaders.set(HttpHeaderNames.CONTENT_LENGTH, S3Api.VERSIONING_ENABLE_CONTENT.length);
 		applyAuthHeaders(reqHeaders, HttpMethod.PUT, bucketVersioningReqUri, credential);
 		final var putBucketVersioningReq = (FullHttpRequest) new DefaultFullHttpRequest(
 						HttpVersion.HTTP_1_1,
 						HttpMethod.PUT,
 						bucketVersioningReqUri,
-						Unpooled.wrappedBuffer(AmzS3Api.VERSIONING_ENABLE_CONTENT).retain(),
+						Unpooled.wrappedBuffer(S3Api.VERSIONING_ENABLE_CONTENT).retain(),
 						reqHeaders,
 						EmptyHttpHeaders.INSTANCE);
 		final FullHttpResponse putBucketVersioningResp;
@@ -264,7 +264,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 					final I lastPrevItem,
 					final int count)
 					throws IOException {
-		final var countLimit = count < 1 || count > AmzS3Api.MAX_KEYS_LIMIT ? AmzS3Api.MAX_KEYS_LIMIT : count;
+		final var countLimit = count < 1 || count > S3Api.MAX_KEYS_LIMIT ? S3Api.MAX_KEYS_LIMIT : count;
 		final var nodeAddr = storageNodeAddrs[0];
 		final var reqHeaders = new DefaultHttpHeaders();
 		reqHeaders.set(HttpHeaderNames.HOST, nodeAddr);
@@ -432,7 +432,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 						+ "?partNumber="
 						+ (partialDataOp.partNumber() + 1)
 						+ "&uploadId="
-						+ partialDataOp.parent().get(AmzS3Api.KEY_UPLOAD_ID);
+						+ partialDataOp.parent().get(S3Api.KEY_UPLOAD_ID);
 		final HttpHeaders httpHeaders = new DefaultHttpHeaders();
 		if (nodeAddr != null) {
 			httpHeaders.set(HttpHeaderNames.HOST, nodeAddr);
@@ -455,7 +455,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 					final CompositeDataOperation mpuTask, final String nodeAddr) {
 		final var content = THREAD_LOCAL_STRB.get();
 		content.setLength(0);
-		content.append(AmzS3Api.COMPLETE_MPU_HEADER);
+		content.append(S3Api.COMPLETE_MPU_HEADER);
 		final List<PartialDataOperation> subTasks = mpuTask.subOperations();
 		int nextPartNum;
 		String nextEtag;
@@ -463,16 +463,16 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 			nextPartNum = subTask.partNumber() + 1;
 			nextEtag = mpuTask.get(Integer.toString(nextPartNum));
 			content
-							.append(AmzS3Api.COMPLETE_MPU_PART_NUM_START)
+							.append(S3Api.COMPLETE_MPU_PART_NUM_START)
 							.append(nextPartNum)
-							.append(AmzS3Api.COMPLETE_MPU_PART_NUM_END)
+							.append(S3Api.COMPLETE_MPU_PART_NUM_END)
 							.append(nextEtag)
-							.append(AmzS3Api.COMPLETE_MPU_PART_ETAG_END);
+							.append(S3Api.COMPLETE_MPU_PART_ETAG_END);
 		}
-		content.append(AmzS3Api.COMPLETE_MPU_FOOTER);
+		content.append(S3Api.COMPLETE_MPU_FOOTER);
 		final var srcPath = mpuTask.srcPath();
 		final var item = (I) mpuTask.item();
-		final var uploadId = mpuTask.get(AmzS3Api.KEY_UPLOAD_ID);
+		final var uploadId = mpuTask.get(S3Api.KEY_UPLOAD_ID);
 		final var uri = dataUriPath(item, srcPath, mpuTask.dstPath(), OpType.CREATE) + "?uploadId=" + uploadId;
 		final HttpHeaders httpHeaders = new DefaultHttpHeaders();
 		httpHeaders.set(HttpHeaderNames.HOST, nodeAddr);
@@ -501,15 +501,15 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 				Loggers.MULTIPART.info(
 								"{},{},{}",
 								compositeOp.item().name(),
-								compositeOp.get(AmzS3Api.KEY_UPLOAD_ID),
+								compositeOp.get(S3Api.KEY_UPLOAD_ID),
 								compositeOp.latency());
 			} else {
-				final var uploadId = channel.attr(AmzS3Api.KEY_ATTR_UPLOAD_ID).get();
+				final var uploadId = channel.attr(S3Api.KEY_ATTR_UPLOAD_ID).get();
 				if (uploadId == null) {
 					op.status(Operation.Status.RESP_FAIL_NOT_FOUND);
 				} else {
 					// multipart upload has been initialized as a result of this load operation
-					compositeOp.put(AmzS3Api.KEY_UPLOAD_ID, uploadId);
+					compositeOp.put(S3Api.KEY_UPLOAD_ID, uploadId);
 				}
 			}
 		}
@@ -519,13 +519,13 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 	@Override
 	protected final void appendHandlers(final Channel channel) {
 		super.appendHandlers(channel);
-		channel.pipeline().addLast(new AmzS3ResponseHandler<>(this, verifyFlag));
+		channel.pipeline().addLast(new S3ResponseHandler<>(this, verifyFlag));
 	}
 
 	@Override
 	protected final void applyCopyHeaders(final HttpHeaders httpHeaders, final String srcPath)
 					throws URISyntaxException {
-		httpHeaders.set(AmzS3Api.KEY_X_AMZ_COPY_SOURCE, srcPath);
+		httpHeaders.set(S3Api.KEY_X_AMZ_COPY_SOURCE, srcPath);
 	}
 
 	@Override
@@ -553,7 +553,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 		final var sigData = mac.doFinal(canonicalForm.getBytes());
 		httpHeaders.set(
 						HttpHeaderNames.AUTHORIZATION,
-						AmzS3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
+						S3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
 	}
 
 	protected String getCanonical(
@@ -561,7 +561,7 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 		final var buffCanonical = BUFF_CANONICAL.get();
 		buffCanonical.setLength(0); // reset/clear
 		buffCanonical.append(httpMethod.name());
-		for (final var headerName : AmzS3Api.HEADERS_CANONICAL) {
+		for (final var headerName : S3Api.HEADERS_CANONICAL) {
 			if (httpHeaders.contains(headerName)) {
 				for (final var headerValue : httpHeaders.getAll(headerName)) {
 					buffCanonical.append('\n').append(headerValue);
@@ -578,14 +578,14 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 		if (sharedHeaders != null) {
 			for (final var header : sharedHeaders) {
 				headerName = header.getKey().toLowerCase();
-				if (headerName.startsWith(AmzS3Api.PREFIX_KEY_X_AMZ)) {
+				if (headerName.startsWith(S3Api.PREFIX_KEY_X_AMZ)) {
 					sortedHeaders.put(headerName, header.getValue());
 				}
 			}
 		}
 		for (final var header : httpHeaders) {
 			headerName = header.getKey().toLowerCase();
-			if (headerName.startsWith(AmzS3Api.PREFIX_KEY_X_AMZ)) {
+			if (headerName.startsWith(S3Api.PREFIX_KEY_X_AMZ)) {
 				sortedHeaders.put(headerName, header.getValue());
 			}
 		}
@@ -606,6 +606,6 @@ public class AmzS3StorageDriver<I extends Item, O extends Operation<I>>
 
 	@Override
 	public String toString() {
-		return String.format(super.toString(), "amzs3");
+		return String.format(super.toString(), "s3");
 	}
 }

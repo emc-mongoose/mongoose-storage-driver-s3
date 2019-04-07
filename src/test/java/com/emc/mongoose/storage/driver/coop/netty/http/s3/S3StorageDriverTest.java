@@ -16,7 +16,7 @@ import com.emc.mongoose.base.item.op.data.DataOperation;
 import com.emc.mongoose.base.item.op.partial.data.PartialDataOperation;
 import com.emc.mongoose.base.storage.Credential;
 import static com.emc.mongoose.base.Constants.APP_NAME;
-import static com.emc.mongoose.storage.driver.coop.netty.http.s3.AmzS3Api.KEY_UPLOAD_ID;
+import static com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.KEY_UPLOAD_ID;
 
 import com.github.akurilov.commons.collection.Range;
 import com.github.akurilov.commons.collection.TreeUtil;
@@ -53,8 +53,8 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.stream.Collectors;
 
-public class AmzS3StorageDriverTest
-				extends AmzS3StorageDriver {
+public class S3StorageDriverTest
+				extends S3StorageDriver {
 
 	private static final Credential CREDENTIAL = Credential.getInstance(
 					"user1", "u5QtPuQx+W5nrrQQEg7nArBqSgC8qLiDt2RhQthb");
@@ -125,12 +125,12 @@ public class AmzS3StorageDriverTest
 
 	private final Queue<FullHttpRequest> httpRequestsLog = new ArrayDeque<>();
 
-	public AmzS3StorageDriverTest()
+	public S3StorageDriverTest()
 					throws Exception {
 		this(getConfig());
 	}
 
-	private AmzS3StorageDriverTest(final Config config)
+	private S3StorageDriverTest(final Config config)
 					throws Exception {
 		super(
 						"test-storage-driver-s3", DataInput.instance(null, "7a42d9c483244167", new SizeInBytes("4MB"), 16),
@@ -201,7 +201,7 @@ public class AmzS3StorageDriverTest
 		final String authHeaderValue2 = reqHeaders2.get(HttpHeaderNames.AUTHORIZATION);
 		assertTrue(authHeaderValue2.startsWith("AWS " + CREDENTIAL.getUid() + ":"));
 		final byte[] reqContent2 = req2.content().array();
-		assertEquals(AmzS3Api.VERSIONING_ENABLE_CONTENT, reqContent2);
+		assertEquals(S3Api.VERSIONING_ENABLE_CONTENT, reqContent2);
 		assertEquals(
 						reqContent2.length, reqHeaders2.getInt(HttpHeaderNames.CONTENT_LENGTH).intValue());
 	}
@@ -291,7 +291,7 @@ public class AmzS3StorageDriverTest
 		final Date dateHeaderValue = DateUtil.FMT_DATE_RFC1123
 						.parse(reqHeaders.get(HttpHeaderNames.DATE));
 		assertEquals(new Date().getTime(), dateHeaderValue.getTime(), 10_000);
-		assertEquals(bucketSrcName + "/" + itemId, reqHeaders.get(AmzS3Api.KEY_X_AMZ_COPY_SOURCE));
+		assertEquals(bucketSrcName + "/" + itemId, reqHeaders.get(S3Api.KEY_X_AMZ_COPY_SOURCE));
 		assertEquals(0, reqHeaders.getInt(HttpHeaderNames.CONTENT_LENGTH).intValue());
 		assertTrue(reqHeaders.get(HttpHeaderNames.AUTHORIZATION).startsWith("AWS " + CREDENTIAL.getUid() + ":"));
 
@@ -299,7 +299,7 @@ public class AmzS3StorageDriverTest
 						reqHeaders, httpRequest.method(), httpRequest.uri());
 		assertEquals(
 						"PUT\n\n\n" + reqHeaders.get(HttpHeaderNames.DATE) + '\n'
-										+ AmzS3Api.KEY_X_AMZ_COPY_SOURCE + ':' + bucketSrcName + '/' + itemId + '\n'
+										+ S3Api.KEY_X_AMZ_COPY_SOURCE + ':' + bucketSrcName + '/' + itemId + '\n'
 										+ bucketDstName + '/' + itemId,
 						canonicalReq);
 	}

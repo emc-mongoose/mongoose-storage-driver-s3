@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public final class AmzS3StorageDriverExtension<I extends Item, O extends Operation<I>, T extends AmzS3StorageDriver<I, O>>
+public final class S3StorageDriverExtension<I extends Item, O extends Operation<I>, T extends S3StorageDriver<I, O>>
 				extends ExtensionBase
 				implements StorageDriverFactory<I, O, T> {
 
@@ -36,7 +36,7 @@ public final class AmzS3StorageDriverExtension<I extends Item, O extends Operati
 	public T create(
 					final String stepId, final DataInput dataInput, final Config storageConfig, final boolean verifyFlag,
 					final int batchSize) throws IllegalConfigurationException, InterruptedException {
-		return (T) new AmzS3StorageDriver<>(stepId, dataInput, storageConfig, verifyFlag, batchSize);
+		return (T) new S3StorageDriver<>(stepId, dataInput, storageConfig, verifyFlag, batchSize);
 	}
 
 	@Override

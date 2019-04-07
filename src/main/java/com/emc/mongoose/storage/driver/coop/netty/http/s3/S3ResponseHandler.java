@@ -27,7 +27,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 /**
 Created by andrey on 25.11.16.
 */
-public final class AmzS3ResponseHandler<I extends Item, O extends Operation<I>>
+public final class S3ResponseHandler<I extends Item, O extends Operation<I>>
 				extends HttpResponseHandlerBase<I, O> {
 
 	private static final AttributeKey<ByteBuf> CONTENT_ATTR_KEY = AttributeKey.newInstance(
@@ -37,7 +37,7 @@ public final class AmzS3ResponseHandler<I extends Item, O extends Operation<I>>
 	private static final Pattern PATTERN_UPLOAD_ID = Pattern.compile(
 					"<UploadId>([a-zA-Z\\d\\-_+=/]+)</UploadId>", Pattern.MULTILINE);
 
-	public AmzS3ResponseHandler(final AmzS3StorageDriver<I, O> driver, final boolean verifyFlag) {
+	public S3ResponseHandler(final S3StorageDriver<I, O> driver, final boolean verifyFlag) {
 		super(driver, verifyFlag);
 	}
 
@@ -88,7 +88,7 @@ public final class AmzS3ResponseHandler<I extends Item, O extends Operation<I>>
 					final String contentStr = content.toString(UTF_8);
 					final Matcher m = PATTERN_UPLOAD_ID.matcher(contentStr);
 					if (m.find()) {
-						channel.attr(AmzS3Api.KEY_ATTR_UPLOAD_ID).set(m.group(1));
+						channel.attr(S3Api.KEY_ATTR_UPLOAD_ID).set(m.group(1));
 					} else {
 						Loggers.ERR.warn(
 										"Upload id not found in the following response content:\n{}", contentStr);
