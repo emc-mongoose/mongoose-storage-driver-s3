@@ -25,7 +25,7 @@ repositories {
 
 description = "Mongoose is a high-load storage performance testing tool"
 group = "com.github.emc-mongoose"
-version = "4.2.9"
+version = "4.2.8"
 sourceCompatibility = 11
 targetCompatibility = 11
 
@@ -41,9 +41,9 @@ ext {
 		junit              : "4.12",
 		log4j              : "2.8.2",
 		mongooseBase       : "4.2.7",
-		mongooseStorageDriverCoop: "4.2.12",
-		mongooseStorageDriverNetty: "4.2.9",
-		mongooseStorageDriverHttp: "4.2.9",
+		mongooseStorageDriverCoop: "4.2.11",
+		mongooseStorageDriverNetty: "4.2.8",
+		mongooseStorageDriverHttp: "4.2.8",
 		netty              : "4.1.25.Final",
 		scala              : "2.12.6",
 		slf4j              : "1.7.25",

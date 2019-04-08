@@ -93,20 +93,21 @@ Should Create Objects Using Multipart Upload
     Remove Directory  ${LOG_DIR}/${step_id}  recursive=True
     Remove File  ${DATA_DIR}/${step_id}.csv
     ${args} =  Catenate  SEPARATOR= \\\n\t
-    ...  --item-data-ranges-threshold=16MB
-    ...  --item-data-size=20MB-100MB
+    ...  --item-data-ranges-threshold=5MB
+    ...  --item-data-size=10MB-100MB
     ...  --item-output-file=${MONGOOSE_CONTAINER_DATA_DIR}/${step_id}.csv
     ...  --item-output-path=mpu
+    ...  --load-batch-size=1
     ...  --load-step-limit-size=2GB
     ...  --load-step-id=${step_id}
     ...  --storage-driver-limit-concurrency=20
     &{env_params} =  Create Dictionary
     ${std_out} =  Execute Mongoose Scenario  ${DATA_DIR}  ${env_params}  ${MONGOOSE_SHARED_ARGS} ${args}
     Log  ${std_out}
-    Validate Log File Metrics Total  ${LOG_DIR}/${step_id}  count_succ_min=${10}  count_succ_max=${100}
+    Validate Log File Metrics Total  ${LOG_DIR}/${step_id}  count_succ_min=${20}  count_succ_max=${204}
     ...  count_fail_max=${10}  transfer_size=${2147483648}  transfer_size_delta=${167772160}
     Validate Item Output File  item_output_file_name=${DATA_DIR}/${step_id}.csv  item_output_path=mpu
-    ...  item_size_min=${20971520}  item_size_max=${104857600}
+    ...  item_size_min=${10485760}  item_size_max=${104857600}
 
 *** Keywords ***
 Start S3 Server
