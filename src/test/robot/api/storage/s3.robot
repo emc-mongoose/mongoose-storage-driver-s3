@@ -97,7 +97,6 @@ Should Create Objects Using Multipart Upload
     ...  --item-data-size=20MB-100MB
     ...  --item-output-file=${MONGOOSE_CONTAINER_DATA_DIR}/${step_id}.csv
     ...  --item-output-path=mpu
-    ...  --load-batch-size=1
     ...  --load-step-limit-size=2GB
     ...  --load-step-id=${step_id}
     ...  --storage-driver-limit-concurrency=20
