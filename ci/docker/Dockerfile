@@ -8,7 +8,7 @@ ADD gradlew ./gradlew
 ADD settings.gradle ./settings.gradle
 RUN ./gradlew clean jar
 
-FROM emcmongoose/mongoose-base:${BASE_VERSION}
+FROM emcmongoose/mongoose-base:4.2.8-hacked
 ARG BASE_VERSION
 ARG STORAGE_DRIVER_COOP_VERSION
 ARG STORAGE_DRIVER_NETTY_VERSION
