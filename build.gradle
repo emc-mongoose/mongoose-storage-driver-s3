@@ -43,7 +43,7 @@ ext {
 		mongooseBase       : "4.2.9",
 		mongooseStorageDriverCoop: "4.2.18",
 		mongooseStorageDriverNetty: "4.2.14",
-		mongooseStorageDriverHttp: "4.2.15",
+		mongooseStorageDriverHttp: "4.2.14",
 		netty              : "4.1.25.Final",
 		scala              : "2.12.6",
 		slf4j              : "1.7.25",
