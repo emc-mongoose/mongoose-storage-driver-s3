@@ -92,7 +92,9 @@ public class S3StorageDriverTest
 			config.val("storage-net-keepAlive", true);
 			config.val("storage-net-rcvBuf", 0);
 			config.val("storage-net-sndBuf", 0);
-			config.val("storage-net-ssl", false);
+			config.val("storage-net-ssl-enabled", false);
+			config.val("storage-net-ssl-protocols", Collections.<String>emptyList());
+			config.val("storage-net-ssl-provider", "OPENSSL");
 			config.val("storage-net-tcpNoDelay", false);
 			config.val("storage-net-interestOpQueued", false);
 			config.val("storage-net-linger", 0);
