@@ -97,9 +97,11 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 
 	@Override
 	protected String requestNewPath(final String path)  {
-		final var bucketUri = path.startsWith(SLASH) ? path : SLASH + path;
+		final var relPath = path.startsWith(SLASH) ? path.substring(1) : path;
+		final var slashPos = relPath.indexOf(SLASH);
+		final var bucketPath = SLASH + (slashPos > 0 ? relPath.substring(0, slashPos) : relPath);
 		final var uriQuery = uriQuery();
-		final var uri = uriQuery == null || uriQuery.isEmpty() ? bucketUri : bucketUri + uriQuery;
+		final var uri = uriQuery == null || uriQuery.isEmpty() ? bucketPath : bucketPath + uriQuery;
 		// check the destination bucket if it exists w/ HEAD request
 		final var nodeAddr = storageNodeAddrs[0];
 		var reqHeaders = (HttpHeaders) new DefaultHttpHeaders();
@@ -167,7 +169,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 
 		// check the bucket versioning state
-		final var bucketVersioningReqUri = bucketUri + "?" + S3Api.URL_ARG_VERSIONING;
+		final var bucketVersioningReqUri = bucketPath + "?" + S3Api.URL_ARG_VERSIONING;
 		reqHeaders = new DefaultHttpHeaders();
 		reqHeaders.set(HttpHeaderNames.HOST, nodeAddr);
 		reqHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
