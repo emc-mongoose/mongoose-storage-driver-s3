@@ -59,18 +59,19 @@ Should Update Multiple Random Byte Ranges
 
 Should Create Objects With Custom Headers
     ${step_id} =  Set Variable  custom_headers
+    ${object_count_limit} =  Convert To Integer  100
     Remove Directory  ${LOG_DIR}/${step_id}  recursive=True
     ${args} =  Catenate  SEPARATOR= \\\n\t
     ...  --item-output-path=/bucket2
-    ...  --load-op-limit-count=10
+    ...  --load-op-limit-count=${object_count_limit}
     ...  --load-step-id=${step_id}
     ...  --storage-driver-limit-concurrency=0
     ...  --run-scenario=${MONGOOSE_CONTAINER_DATA_DIR}/${step_id}.js
     &{env_params} =  Create Dictionary
     ${std_out} =  Execute Mongoose Scenario  ${DATA_DIR}  ${env_params}  ${MONGOOSE_SHARED_ARGS} ${args}
     Log  ${std_out}
-    Validate Log File Metrics Total  ${LOG_DIR}/${step_id}  count_succ_min=${10}  count_succ_max=${10}
-    ...  transfer_size=${10485760}  transfer_size_delta=${0}
+    Validate Log File Metrics Total  ${LOG_DIR}/${step_id}  count_succ_min=${object_count_limit}
+    ...  count_succ_max=${object_count_limit}  transfer_size=${104857600}  transfer_size_delta=${0}
 
 Should Copy Objects Using Bucket Listing
     ${step_id} =  Set Variable  copy_objects_using_bucket_listing
