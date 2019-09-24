@@ -59,13 +59,13 @@ Should Update Multiple Random Byte Ranges
 
 Should Create Objects With Custom Headers
     ${step_id} =  Set Variable  custom_headers
-    ${object_count_limit} =  Convert To Integer  100
+    ${object_count_limit} =  Convert To Integer  10
     Remove Directory  ${LOG_DIR}/${step_id}  recursive=True
     ${args} =  Catenate  SEPARATOR= \\\n\t
     ...  --item-output-path=/bucket2
     ...  --load-op-limit-count=${object_count_limit}
     ...  --load-step-id=${step_id}
-    ...  --storage-driver-limit-concurrency=0
+    ...  --storage-driver-limit-concurrency=10
     ...  --run-scenario=${MONGOOSE_CONTAINER_DATA_DIR}/${step_id}.js
     &{env_params} =  Create Dictionary
     ${std_out} =  Execute Mongoose Scenario  ${DATA_DIR}  ${env_params}  ${MONGOOSE_SHARED_ARGS} ${args}
