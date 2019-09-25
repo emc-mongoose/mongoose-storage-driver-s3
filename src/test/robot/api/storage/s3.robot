@@ -66,7 +66,7 @@ Should Create Objects With Custom Headers
     ...  --load-op-limit-count=${object_count_limit}
     ...  --load-step-id=${step_id}
     ...  --storage-driver-limit-concurrency=0
-    #...  --run-scenario=${MONGOOSE_CONTAINER_DATA_DIR}/${step_id}.js
+    ...  --run-scenario=${MONGOOSE_CONTAINER_DATA_DIR}/${step_id}.js
     &{env_params} =  Create Dictionary
     ${std_out} =  Execute Mongoose Scenario  ${DATA_DIR}  ${env_params}  ${MONGOOSE_SHARED_ARGS} ${args}
     Log  ${std_out}
