@@ -21,7 +21,7 @@ ${MONGOOSE_SHARED_ARGS} =  --storage-driver-type=s3 --storage-net-node-port=${S3
 
 *** Test Cases ***
 Should Read Single Random Byte Ranges
-    Pass
+    Pass Execution
 #    ${step_id} =  Set Variable  read_multiple_random_byte_ranges
 #    ${object_count_limit} =  Convert To Integer  1000
 #    ${random_byte_range_count} =  Convert To Integer  1
