@@ -41,22 +41,86 @@
     * `delete`
     * `noop`
 
-## 2. Usage
+## 2. Deployment
+
+## 2.1. Basic
+
+Java 11+ is required to build/run.
+
+1. Get the latest `mongoose-base` jar from the 
+[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-base/)
+and put it to your working directory. Note the particular version, which is referred as *BASE_VERSION* below.
+
+2. Get the latest `mongoose-storage-driver-coop` jar from the
+[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-coop/)
+and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
+
+3. Get the latest `mongoose-storage-driver-netty` jar from the
+[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-netty/)
+and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
+
+4. Get the latest `mongoose-storage-driver-http` jar from the
+[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-http/)
+and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
+
+5. Get the latest `mongoose-storage-driver-s3` jar from the
+[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3/)
+and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
 
 ```bash
-java -jar mongoose-<VERSION>.jar \
+java -jar mongoose-base-<BASE_VERSION>.jar \
     --storage-driver-type=s3 \
     ...
 ```
+## 2.2. Docker
 
-### 2.1. Configuration Reference
+### 2.2.1. Standalone
+
+Example:
+```bash
+docker run \
+    --network host \
+    emcmongoose/mongoose-storage-driver-s3 \
+    --storage-net-node-addrs=<NODE_IP_ADDRS> \
+    ...
+```
+
+### 2.2.2. Distributed
+
+#### 2.2.2.1. Additional Node
+
+Example:
+```bash
+docker run \
+    --network host \
+    --expose 1099 \
+    emcmongoose/mongoose-storage-driver-s3 \
+    --run-node
+```
+
+#### 2.2.2.2. Entry Node
+
+Example:
+```bash
+docker run \
+    --network host \
+    emcmongoose/mongoose-storage-driver-s3 \
+    --load-step-node-addrs=<ADDR1,ADDR2,...> \
+    --storage-net-node-addrs=<NODE_IP_ADDRS> \
+    ...
+```
+
+
+## 3. Configuration Reference
+
+### 3.1. Specific Options
 
 | Name                                           | Type         | Default Value    | Description                                      |
 |:-----------------------------------------------|:-------------|:-----------------|:-------------------------------------------------|
 | storage-net-http-fsAccess                      | Flag | false | Specifies whether filesystem access is enabled or not
 | storage-net-http-versioning                    | Flag | false | Specifies whether the versioning storage feature is used or not
 
-### 2.2. Notes
+### 3.2. Other Options
 
 * A **bucket** may be specified with either `item-input-path` or `item-output-path` configuration option
 * Multipart upload should be enabled using the `item-data-ranges-threshold` configuration option
