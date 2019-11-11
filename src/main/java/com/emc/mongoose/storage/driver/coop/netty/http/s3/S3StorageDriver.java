@@ -146,23 +146,6 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		requestAuthTokenFunc = null; // do not use
 	}
 
-	Input<String> makeExpressionInput(final String e) {
-		final Input<String> input;
-		if(
-			e.contains(ASYNC_MARKER)
-				|| e.contains(SYNC_MARKER)
-				|| e.contains(INIT_MARKER)
-		) {
-			input =  CompositeExpressionInputBuilder
-				.newInstance()
-				.expression(e)
-				.build();
-		} else {
-			input = new ConstantValueInputImpl<>(e);
-		}
-		return input;
-	}
-
 	@Override
 	protected String requestNewPath(final String path)  {
 		final var relPath = path.startsWith(SLASH) ? path.substring(1) : path;
