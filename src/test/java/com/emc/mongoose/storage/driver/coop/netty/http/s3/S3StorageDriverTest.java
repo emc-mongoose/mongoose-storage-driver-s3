@@ -103,8 +103,10 @@ public class S3StorageDriverTest
 			config.val("storage-net-node-addrs", Collections.singletonList("127.0.0.1"));
 			config.val("storage-net-node-port", 9024);
 			config.val("storage-net-node-connAttemptsLimit", 0);
-			config.val("storage-net-http-fsAccess", true);
-			config.val("storage-net-http-versioning", true);
+			config.val("storage-object-fsAccess", true);
+			config.val("storage-object-tagging-enabled", false);
+			config.val("storage-object-tagging-tags", new HashMap<>());
+			config.val("storage-object-versioning", true);
 			config.val(
 							"storage-net-http-headers",
 							new HashMap<String, String>() {
