@@ -3,7 +3,9 @@
 storage:
   auth:
     version: int
-  net:
-    http:
+  object:
       fsAccess: boolean
+      tagging:
+        enabled: boolean
+        tags: map
       versioning: boolean

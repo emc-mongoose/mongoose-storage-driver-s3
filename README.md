@@ -29,11 +29,15 @@
         * random byte ranges
         * fixed byte ranges
         * content verification
+        * object tagging
     * `update`
         * full (overwrite)
         * random byte ranges
         * fixed byte ranges (with append mode)
+        * object tagging
     * `delete`
+        * full
+        * object tagging
     * `noop`
 * Path item operation types:
     * `create`
@@ -117,11 +121,40 @@ docker run \
 
 | Name                                           | Type         | Default Value    | Description                                      |
 |:-----------------------------------------------|:-------------|:-----------------|:-------------------------------------------------|
-| storage-net-http-fsAccess                      | Flag | false | Specifies whether filesystem access is enabled or not
-| storage-net-http-versioning                    | Flag | false | Specifies whether the versioning storage feature is used or not
+| storage-object-fsAccess                        | Flag | false | Specifies whether filesystem access is enabled or not
+| storage-object-tagging-enabled                 | Flag | false | Work (PUT/GET/DELETE) with object tagging or not (default)
+| storage-object-tagging-tags                    | Map  | {} | Map of name-value tags, effective only for the `UPDATE` operation when tagging is enabled
+| storage-object-versioning                      | Flag | false | Specifies whether the versioning storage feature is used or not
 
 ### 3.2. Other Options
 
 * A **bucket** may be specified with either `item-input-path` or `item-output-path` configuration option
 * Multipart upload should be enabled using the `item-data-ranges-threshold` configuration option
 * The default storage port is set to 9020 for the docker image
+
+## 4. Usage
+
+### 4.1. Object Tagging
+
+Scenario example:
+```javascript
+var updateTaggingConfig = {
+    "storage" : {
+        "object" : {
+            "tagging" : {
+                "enabled" : true,
+                "tags" : {
+                    "tag0" : "value_0",
+                    "tag1" : "value_1",
+                    // ...
+                    "tagN" : "value_N"
+                }
+            }
+        }
+    }
+};
+
+UpdateLoad
+    .config(updateTaggingConfig)
+    .run();
+```

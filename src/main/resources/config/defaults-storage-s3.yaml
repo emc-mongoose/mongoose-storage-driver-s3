@@ -4,7 +4,9 @@
 storage:
   auth:
     version: 2
-  net:
-    http:
+  object:
       fsAccess: false
+      tagging:
+        enabled: false
+        tags: {}
       versioning: false
