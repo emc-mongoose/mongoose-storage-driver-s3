@@ -56,6 +56,7 @@ import java.net.ConnectException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -91,6 +92,15 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			throw new AssertionError(e);
 		}
 	};
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_MD5 = ThreadLocal.withInitial(
+		() -> {
+			try {
+				return MessageDigest.getInstance("MD5");
+			} catch(final NoSuchAlgorithmException e) {
+				throw new AssertionError(e);
+			}
+		}
+	);
 
 	protected final boolean fsAccess;
 	protected final boolean taggingEnabled;
@@ -579,6 +589,8 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 					EmptyHttpHeaders.INSTANCE
 				);
 				httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentBytes.length);
+				final var contentMd5 = THREAD_LOCAL_MD5.get().digest(contentBytes);
+				httpHeaders.set(HttpHeaderNames.CONTENT_MD5, BASE64_ENCODER.encodeToString(contentMd5));
 				break;
 			case DELETE:
 				httpRequest = new DefaultFullHttpRequest(
