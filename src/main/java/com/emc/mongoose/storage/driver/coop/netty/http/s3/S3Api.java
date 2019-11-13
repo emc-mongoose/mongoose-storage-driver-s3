@@ -46,6 +46,13 @@ public interface S3Api {
 	String COMPLETE_MPU_PART_ETAG_END = "</ETag>\n\t</Part>\n";
 	String COMPLETE_MPU_FOOTER = "</CompleteMultipartUpload>";
 
+	String TAGGING_HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+		"<Tagging xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">\n\t<TagSet>\n";
+	String TAGGING_ENTRY_START = "\t\t<Tag><Key>";
+	String TAGGING_ENTRY_MIDDLE = "</Key><Value>";
+	String TAGGING_ENTRY_END = "</Value></Tag>\n";
+	String TAGGING_FOOTER = "\t</TagSet>\n</Tagging>\n";
+
 	int MAX_KEYS_LIMIT = 1000;
 	String QNAME_ITEM = "Contents";
 	String QNAME_ITEM_ID = "Key";

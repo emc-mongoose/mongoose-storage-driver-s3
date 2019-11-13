@@ -29,11 +29,15 @@
         * random byte ranges
         * fixed byte ranges
         * content verification
+        * [object tagging](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectTagging.html)
     * `update`
         * full (overwrite)
         * random byte ranges
         * fixed byte ranges (with append mode)
+        * [object tagging](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectTagging.html)
     * `delete`
+        * full
+        * [object tagging](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjectTagging.html)
     * `noop`
 * Path item operation types:
     * `create`
@@ -117,11 +121,112 @@ docker run \
 
 | Name                                           | Type         | Default Value    | Description                                      |
 |:-----------------------------------------------|:-------------|:-----------------|:-------------------------------------------------|
-| storage-net-http-fsAccess                      | Flag | false | Specifies whether filesystem access is enabled or not
-| storage-net-http-versioning                    | Flag | false | Specifies whether the versioning storage feature is used or not
+| storage-object-fsAccess                        | Flag | false | Specifies whether filesystem access is enabled or not
+| storage-object-tagging-enabled                 | Flag | false | Work (PUT/GET/DELETE) with object tagging or not (default)
+| storage-object-tagging-tags                    | Map  | {} | Map of name-value tags, effective only for the `UPDATE` operation when tagging is enabled
+| storage-object-versioning                      | Flag | false | Specifies whether the versioning storage feature is used or not
 
 ### 3.2. Other Options
 
 * A **bucket** may be specified with either `item-input-path` or `item-output-path` configuration option
 * Multipart upload should be enabled using the `item-data-ranges-threshold` configuration option
 * The default storage port is set to 9020 for the docker image
+
+## 4. Usage
+
+### 4.1. Object Tagging
+
+https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete
+
+#### 4.1.1. Put Object Tags
+
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectTagging.html
+
+Put (create or replace) the tags on the existing objects. The `update` load operation should be used for this. 
+The objects should be specified by an 
+[item input](https://github.com/emc-mongoose/mongoose-base/tree/master/doc/usage/item/input#items-input) 
+(the bucket listing or the items input CSV file). 
+
+Scenario example:
+```javascript
+var updateTaggingConfig = {
+    "storage" : {
+        "object" : {
+            "tagging" : {
+                "enabled" : true,
+                "tags" : {
+                    "tag0" : "value_0",
+                    "tag1" : "value_1",
+                    // ...
+                    "tagN" : "value_N"
+                }
+            }
+        }
+    }
+};
+
+UpdateLoad
+    .config(updateTaggingConfig)
+    .run();
+```
+
+***Note***:
+> It's not possible to use the command line to specify the tag set, a user should use the scenario file for this
+
+##### 4.1.1.1. Tags Expressions
+
+Both tag names and values support the 
+[expression language](https://github.com/emc-mongoose/mongoose-base/blob/master/src/main/java/com/emc/mongoose/base/config/el/README.md):
+
+Example:
+```javascript
+var updateTaggingConfig = {
+    "storage" : {
+        "object" : {
+            "tagging" : {
+                "enabled" : true,
+                "tags" : {
+                    "foo${rnd.nextInt()}" : "bar${time:millisSinceEpoch()}",
+                    "key1" : "${date:formatNowIso8601()}",
+                    "${e}" : "${pi}"
+                }
+            }
+        }
+    }
+};
+
+UpdateLoad
+    .config(updateTaggingConfig)
+    .run();
+```
+
+#### 4.1.2. Get Object Tags
+
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectTagging.html
+
+Example:
+```bash
+docker run \
+    --network host \
+    emcmongoose/mongoose-storage-driver-s3 \
+    --storage-net-node-addrs=<NODE_IP_ADDRS> \
+    --read \
+    --item-input-path=/bucket1 \
+    --storage-object-tagging-enabled \
+    ...
+```
+
+#### 4.1.3. Delete Object Tags
+
+https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjectTagging.html
+
+```bash
+docker run \
+    --network host \
+    emcmongoose/mongoose-storage-driver-s3 \
+    --storage-net-node-addrs=<NODE_IP_ADDRS> \
+    --delete \
+    --item-input-file=objects_to_delete_tagging.csv \
+    --storage-object-tagging-enabled \
+    ...
+```

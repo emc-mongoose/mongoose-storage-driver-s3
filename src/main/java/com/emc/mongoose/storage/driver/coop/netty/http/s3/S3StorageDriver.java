@@ -1,10 +1,23 @@
 package com.emc.mongoose.storage.driver.coop.netty.http.s3;
 
 import static com.emc.mongoose.base.item.op.Operation.SLASH;
+import static com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.TAGGING_ENTRY_END;
+import static com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.TAGGING_ENTRY_MIDDLE;
+import static com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.TAGGING_ENTRY_START;
+import static com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.TAGGING_FOOTER;
+import static com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.TAGGING_HEADER;
+import static com.github.akurilov.commons.io.el.ExpressionInput.ASYNC_MARKER;
+import static com.github.akurilov.commons.io.el.ExpressionInput.INIT_MARKER;
+import static com.github.akurilov.commons.io.el.ExpressionInput.SYNC_MARKER;
 import static com.github.akurilov.commons.lang.Exceptions.throwUnchecked;
+import static io.netty.handler.codec.http.HttpMethod.DELETE;
+import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpMethod.PUT;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.emc.mongoose.base.config.ConstantValueInputImpl;
+import com.emc.mongoose.base.config.el.CompositeExpressionInputBuilder;
 import com.emc.mongoose.base.data.DataInput;
 import com.emc.mongoose.base.env.DateUtil;
 import com.emc.mongoose.base.config.IllegalConfigurationException;
@@ -19,6 +32,7 @@ import com.emc.mongoose.base.logging.LogUtil;
 import com.emc.mongoose.base.logging.Loggers;
 import com.emc.mongoose.base.storage.Credential;
 import com.emc.mongoose.storage.driver.coop.netty.http.HttpStorageDriverBase;
+import com.github.akurilov.commons.io.Input;
 import com.github.akurilov.confuse.Config;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
@@ -42,6 +56,7 @@ import java.net.ConnectException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -77,8 +92,19 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			throw new AssertionError(e);
 		}
 	};
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_MD5 = ThreadLocal.withInitial(
+		() -> {
+			try {
+				return MessageDigest.getInstance("MD5");
+			} catch(final NoSuchAlgorithmException e) {
+				throw new AssertionError(e);
+			}
+		}
+	);
 
 	protected final boolean fsAccess;
+	protected final boolean taggingEnabled;
+	protected final Input<String> taggingContentInput;
 	protected final boolean versioning;
 
 	public S3StorageDriver(
@@ -89,9 +115,44 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 					final int batchSize)
 					throws IllegalConfigurationException, InterruptedException {
 		super(stepId, itemDataInput, storageConfig, verifyFlag, batchSize);
-		final var httpConfig = storageConfig.configVal("net-http");
-		fsAccess = httpConfig.boolVal("fsAccess");
-		versioning = httpConfig.boolVal("versioning");
+		final var objectConfig = storageConfig.configVal("object");
+		fsAccess = objectConfig.boolVal("fsAccess");
+		final var taggingConfig = objectConfig.configVal("tagging");
+		taggingEnabled = taggingConfig.boolVal("enabled");
+		if(taggingEnabled) {
+			Loggers.MSG.info("{}: S3 Object Tagging Mode Enabled", stepId);
+		}
+		final var tags = taggingConfig.<String>mapVal("tags");
+		final StringBuilder exprBuff = new StringBuilder();
+		exprBuff.append(TAGGING_HEADER);
+		for(final var tagEntry: tags.entrySet()) {
+			final var k = tagEntry.getKey();
+			final var v = tagEntry.getValue();
+			exprBuff
+				.append(TAGGING_ENTRY_START)
+				.append(k)
+				.append(TAGGING_ENTRY_MIDDLE)
+				.append(v)
+				.append(TAGGING_ENTRY_END);
+		}
+		exprBuff.append(TAGGING_FOOTER);
+		final var taggingContentExpr = exprBuff.toString();
+		if(taggingEnabled) {
+			Loggers.MSG.debug("{}: tagging content pattern: {}", stepId, taggingContentExpr);
+		}
+		if(
+			taggingContentExpr.contains(ASYNC_MARKER) ||
+				taggingContentExpr.contains(SYNC_MARKER) ||
+				taggingContentExpr.contains(INIT_MARKER)
+		) {
+			taggingContentInput = CompositeExpressionInputBuilder
+				.newInstance()
+				.expression(exprBuff.toString())
+				.build();
+		} else {
+			taggingContentInput = new ConstantValueInputImpl<>(taggingContentExpr);
+		}
+		versioning = objectConfig.boolVal("versioning");
 		requestAuthTokenFunc = null; // do not use
 	}
 
@@ -347,19 +408,21 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			if (OpType.CREATE.equals(opType)) {
 				final var mpuOp = (CompositeDataOperation) op;
 				if (mpuOp.allSubOperationsDone()) {
-					httpRequest = getCompleteMpuRequest(mpuOp, nodeAddr);
+					httpRequest = completeMultipartUploadRequest(mpuOp, nodeAddr);
 				} else { // this is the initial state of the task
-					httpRequest = getInitMpuRequest(op, nodeAddr);
+					httpRequest = initMultipartUploadRequest(op, nodeAddr);
 				}
 			} else {
 				throw new AssertionError("Non-create multipart operations are not implemented yet");
 			}
 		} else if (op instanceof PartialDataOperation) {
 			if (OpType.CREATE.equals(opType)) {
-				httpRequest = getUploadPartRequest((PartialDataOperation) op, nodeAddr);
+				httpRequest = partUploadRequest((PartialDataOperation) op, nodeAddr);
 			} else {
 				throw new AssertionError("Non-create multipart operations are not implemented yet");
 			}
+		} else if (taggingEnabled) {
+			httpRequest = objectTaggingRequest(op, nodeAddr);
 		} else {
 			httpRequest = super.httpRequest(op, nodeAddr);
 		}
@@ -379,7 +442,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		case READ:
 			return HttpMethod.GET;
 		case DELETE:
-			return HttpMethod.DELETE;
+			return DELETE;
 		default:
 			return HttpMethod.PUT;
 		}
@@ -405,7 +468,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	@Override
 	protected void applyMetaDataHeaders(final HttpHeaders httpHeaders) {}
 
-	private HttpRequest getInitMpuRequest(final O op, final String nodeAddr) {
+	HttpRequest initMultipartUploadRequest(final O op, final String nodeAddr) {
 		final var item = op.item();
 		final var srcPath = op.srcPath();
 		if (srcPath != null && !srcPath.isEmpty()) {
@@ -426,7 +489,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		return httpRequest;
 	}
 
-	private HttpRequest getUploadPartRequest(
+	HttpRequest partUploadRequest(
 					final PartialDataOperation partialDataOp, final String nodeAddr) {
 		final var item = (I) partialDataOp.item();
 		final var srcPath = partialDataOp.srcPath();
@@ -453,7 +516,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 
 	private static final ThreadLocal<StringBuilder> THREAD_LOCAL_STRB = ThreadLocal.withInitial(StringBuilder::new);
 
-	private FullHttpRequest getCompleteMpuRequest(
+	FullHttpRequest completeMultipartUploadRequest(
 					final CompositeDataOperation mpuTask, final String nodeAddr) {
 		final var content = THREAD_LOCAL_STRB.get();
 		content.setLength(0);
@@ -492,6 +555,60 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		applyDynamicHeaders(httpHeaders);
 		applySharedHeaders(httpHeaders);
 		applyAuthHeaders(httpHeaders, httpMethod, uri, mpuTask.credential());
+		return httpRequest;
+	}
+
+	FullHttpRequest objectTaggingRequest(final O op, final String nodeAddr) {
+		final var srcPath = op.srcPath();
+		final var item = (I) op.item();
+		final var uri = dataUriPath(item, srcPath, op.dstPath(), OpType.CREATE) + "?tagging";
+		final HttpHeaders httpHeaders = new DefaultHttpHeaders();
+		httpHeaders.set(HttpHeaderNames.HOST, nodeAddr);
+		final var opType = op.type();
+		var httpRequest = (FullHttpRequest) null;
+		switch (opType) {
+			case READ:
+				httpRequest = new DefaultFullHttpRequest(
+					HTTP_1_1,
+					GET,
+					uri,
+					Unpooled.EMPTY_BUFFER,
+					httpHeaders,
+					EmptyHttpHeaders.INSTANCE
+				);
+				break;
+			case UPDATE:
+				final var content = taggingContentInput.get();
+				final var contentBytes = content.getBytes();
+				httpRequest = new DefaultFullHttpRequest(
+					HTTP_1_1,
+					PUT,
+					uri,
+					Unpooled.wrappedBuffer(contentBytes),
+					httpHeaders,
+					EmptyHttpHeaders.INSTANCE
+				);
+				httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, contentBytes.length);
+				final var contentMd5 = THREAD_LOCAL_MD5.get().digest(contentBytes);
+				httpHeaders.set(HttpHeaderNames.CONTENT_MD5, BASE64_ENCODER.encodeToString(contentMd5));
+				break;
+			case DELETE:
+				httpRequest = new DefaultFullHttpRequest(
+					HTTP_1_1,
+					DELETE,
+					uri,
+					Unpooled.EMPTY_BUFFER,
+					httpHeaders,
+					EmptyHttpHeaders.INSTANCE
+				);
+				break;
+			default:
+				throw new AssertionError(stepId + ": object tagging is not supported for " + opType);
+		}
+		applyMetaDataHeaders(httpHeaders);
+		applyDynamicHeaders(httpHeaders);
+		applySharedHeaders(httpHeaders);
+		applyAuthHeaders(httpHeaders, httpRequest.method(), uri, op.credential());
 		return httpRequest;
 	}
 
