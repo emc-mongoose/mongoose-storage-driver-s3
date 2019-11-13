@@ -136,7 +136,7 @@ docker run \
 
 ### 4.1. Object Tagging
 
-https://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html#MultiFactorAuthenticationDelete
+https://docs.aws.amazon.com/AmazonS3/latest/dev/object-tagging.html
 
 #### 4.1.1. Put Object Tags
 
@@ -168,6 +168,19 @@ var updateTaggingConfig = {
 UpdateLoad
     .config(updateTaggingConfig)
     .run();
+```
+
+Command line example:
+```bash
+docker run \
+    --network host \
+    emcmongoose/mongoose-storage-driver-s3 \
+    --storage-auth-uid=user1 \ 
+    --storage-auth-secret=**************************************** \
+    --item-input-file=objects_to_update_tagging.csv \
+    --item-output-path=/bucket1 \
+    --storage-net-transport=nio \
+    --run-scenario=tagging.js
 ```
 
 ***Note***:
