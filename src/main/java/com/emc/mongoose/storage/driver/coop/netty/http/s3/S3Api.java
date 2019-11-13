@@ -51,7 +51,7 @@ public interface S3Api {
 	String TAGGING_ENTRY_START = "\t\t<Tag><Key>";
 	String TAGGING_ENTRY_MIDDLE = "</Key><Value>";
 	String TAGGING_ENTRY_END = "</Value></Tag>\n";
-	String TAGGING_FOOTER = "\t</TagSet>\n<Tagging>\n";
+	String TAGGING_FOOTER = "\t</TagSet>\n</Tagging>\n";
 
 	int MAX_KEYS_LIMIT = 1000;
 	String QNAME_ITEM = "Contents";
