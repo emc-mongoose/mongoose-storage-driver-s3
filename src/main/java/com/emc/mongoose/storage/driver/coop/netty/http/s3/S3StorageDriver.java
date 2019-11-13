@@ -574,7 +574,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 					HTTP_1_1,
 					PUT,
 					uri,
-					Unpooled.EMPTY_BUFFER,
+					Unpooled.wrappedBuffer(contentBytes),
 					httpHeaders,
 					EmptyHttpHeaders.INSTANCE
 				);
