@@ -23,6 +23,7 @@ Mongoose storage driver extention for testing of **S3 type storages**. The repo 
     4.1. [Main functionality](#41-main-functionality)<br/>
     4.1. [HTTP functionality](#41-http-functionality)<br/>
     4.2. [Object Tagging](#42-object-tagging)<br/>
+5. [Minio S3 server](#5-minio-s3-server)<br/>
 
 ## 1. Features
 
