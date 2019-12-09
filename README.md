@@ -8,6 +8,24 @@
 
 # S3 Storage Driver
 
+Mongoose storage driver extention for testing of **S3 type storages**. The repo contains only the extension source code, the source code of the mongoose core and the full mongoose documentation is contained in the [`mongoose-base` repository](https://github.com/emc-mongoose/mongoose-base).
+
+# Content
+
+- [1. Features](#1-features)
+- [2. Deployment](#2-deployment)
+- [2.1. Jar](#21-jar)
+- [2.2. Docker](#22-docker)
+  * [2.2.1. Standalone](#221-standalone)
+  * [2.2.2. Distributed](#222-distributed)
+- [3. Configuration Reference](#3-configuration-reference)
+  * [3.1. S3 Specific Options](#31-s3-specific-options)
+  * [3.2. Other Options](#32-other-options)
+- [4. Usage](#4-usage)
+  * [4.1. Main functionality](#41-main-functionality)
+  * [4.1. HTTP functionality](#41-http-functionality)
+  * [4.2. Object Tagging](#42-object-tagging)
+
 ## 1. Features
 
 * API version: 2006-03-01
@@ -47,7 +65,7 @@
 
 ## 2. Deployment
 
-## 2.1. Basic
+## 2.1. Jar
 
 Java 11+ is required to build/run.
 
@@ -74,9 +92,11 @@ and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
 ```bash
 java -jar mongoose-base-<BASE_VERSION>.jar \
     --storage-driver-type=s3 \
-    ...
+    [<MONGOOSE CLI ARGS>]
 ```
 ## 2.2. Docker
+
+[More deployment examples](https://github.com/emc-mongoose/mongoose-base/tree/master/doc/deployment)
 
 ### 2.2.1. Standalone
 
@@ -86,7 +106,7 @@ docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-s3 \
     --storage-net-node-addrs=<NODE_IP_ADDRS> \
-    ...
+    [<MONGOOSE CLI ARGS>]
 ```
 
 ### 2.2.2. Distributed
@@ -97,10 +117,19 @@ Example:
 ```bash
 docker run \
     --network host \
-    --expose 1099 \
     emcmongoose/mongoose-storage-driver-s3 \
     --run-node
 ```
+
+> NOTE: Mongoose uses `1099` port for RMI between mongoose nodes and `9999` for REST API. If you run several mongoose nodes on the same host (in different docker containers, for example) or if the ports are used by another service, then ports can be redefined:
+> ```bash
+> docker run \
+>    --network host \
+>    emcmongoose/mongoose-storage-driver-s3 \
+>    --run-node \
+>    --load-step-node-port=<RMI PORT> \
+>    --run-port=<REST PORT> 
+> ```
 
 #### 2.2.2.2. Entry Node
 
@@ -111,19 +140,18 @@ docker run \
     emcmongoose/mongoose-storage-driver-s3 \
     --load-step-node-addrs=<ADDR1,ADDR2,...> \
     --storage-net-node-addrs=<NODE_IP_ADDRS> \
-    ...
+    [<MONGOOSE CLI ARGS>]
 ```
-
 
 ## 3. Configuration Reference
 
-### 3.1. Specific Options
+### 3.1. S3 Specific Options
 
 | Name                                           | Type         | Default Value    | Description                                      |
 |:-----------------------------------------------|:-------------|:-----------------|:-------------------------------------------------|
 | storage-object-fsAccess                        | Flag | false | Specifies whether filesystem access is enabled or not
 | storage-object-tagging-enabled                 | Flag | false | Work (PUT/GET/DELETE) with object tagging or not (default)
-| storage-object-tagging-tags                    | Map  | {} | Map of name-value tags, effective only for the `UPDATE` operation when tagging is enabled
+| storage-object-tagging-tags                    | Map  | {}    | Map of name-value tags, effective only for the `UPDATE` operation when tagging is enabled
 | storage-object-versioning                      | Flag | false | Specifies whether the versioning storage feature is used or not
 
 ### 3.2. Other Options
@@ -134,11 +162,19 @@ docker run \
 
 ## 4. Usage
 
-### 4.1. Object Tagging
+### 4.1. Main functionality
+
+[Examples of mongoose core usage](https://github.com/emc-mongoose/mongoose-base/tree/master/doc/getstarted)
+
+### 4.1. HTTP functionality
+
+[Examples of HTTP headers usage](https://github.com/emc-mongoose/mongoose-storage-driver-http)
+
+### 4.2. Object Tagging
 
 https://docs.aws.amazon.com/AmazonS3/latest/dev/object-tagging.html
 
-#### 4.1.1. Put Object Tags
+#### 4.2.1. Put Object Tags
 
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectTagging.html
 
@@ -186,7 +222,7 @@ docker run \
 ***Note***:
 > It's not possible to use the command line to specify the tag set, a user should use the scenario file for this
 
-##### 4.1.1.1. Tags Expressions
+##### 4.2.1.1. Tags Expressions
 
 Both tag names and values support the 
 [expression language](https://github.com/emc-mongoose/mongoose-base/blob/master/src/main/java/com/emc/mongoose/base/config/el/README.md):
@@ -213,7 +249,7 @@ UpdateLoad
     .run();
 ```
 
-#### 4.1.2. Get Object Tags
+#### 4.2.2. Get Object Tags
 
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObjectTagging.html
 
@@ -226,10 +262,10 @@ docker run \
     --read \
     --item-input-path=/bucket1 \
     --storage-object-tagging-enabled \
-    ...
+    [<MONGOOSE CLI ARGS>]
 ```
 
-#### 4.1.3. Delete Object Tags
+#### 4.2.3. Delete Object Tags
 
 https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjectTagging.html
 
@@ -241,5 +277,5 @@ docker run \
     --delete \
     --item-input-file=objects_to_delete_tagging.csv \
     --storage-object-tagging-enabled \
-    ...
+    [<MONGOOSE CLI ARGS>]
 ```
