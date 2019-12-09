@@ -97,6 +97,8 @@ java -jar mongoose-base-<BASE_VERSION>.jar \
 
 [More deployment examples](https://github.com/emc-mongoose/mongoose-base/tree/master/doc/deployment)
 
+> NOTE: The base image doesn't contain any additonal load step types neither additional storage drivers. 
+
 ### 2.2.1. Standalone
 
 Example:
