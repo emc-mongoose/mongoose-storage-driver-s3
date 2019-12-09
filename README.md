@@ -169,6 +169,8 @@ docker run \
 
 ### 4.1. HTTP functionality
 
+> NOTE: Mongoose S3 SD depends on Mongoose HTTP SD, and the S3 bundle includes all the features of HTTP SD, so all http-specific parameters can be also used with this S3 driver.
+
 [Examples of HTTP headers usage](https://github.com/emc-mongoose/mongoose-storage-driver-http)
 
 ### 4.2. Object Tagging
