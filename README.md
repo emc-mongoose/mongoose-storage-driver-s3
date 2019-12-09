@@ -293,3 +293,13 @@ docker run -d --name s3_server \
         minio/minio:latest \
         server /data
 ```
+
+Mongoose run:
+```
+docker run --network host \
+        emcmongoose/mongoose-storage-driver-s3  \
+        --storage-net-node-port=9000 \
+        --storage-auth-uid=user1 \
+        --storage-auth-secret=secretKey1 \
+        --storage-net-node-addrs=localhost 
+```
