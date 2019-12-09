@@ -277,3 +277,18 @@ docker run \
     --storage-object-tagging-enabled \
     [<MONGOOSE CLI ARGS>]
 ```
+
+## 5. Minio S3 server
+
+For tests, a [`minio/minio`](https://github.com/minio/minio) S3 server is used. 
+It can be deployed to test the mongoose commands and S3-specific scenarios if there is no access to real S3 storage.
+
+Example:
+```
+docker run -d --name s3_server \
+        -p 9000:9000 \
+        --env MINIO_ACCESS_KEY=user1 \
+        --env MINIO_SECRET_KEY=secretKey1  \
+        minio/minio:latest \
+        server /data
+```
