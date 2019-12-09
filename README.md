@@ -12,19 +12,17 @@ Mongoose storage driver extention for testing of **S3 type storages**. The repo 
 
 # Content
 
-[1. Features](#1-features)
-[2. Deployment](#2-deployment)
-[2.1. Jar](#21-jar)
-[2.2. Docker](#22-docker)
-    [2.2.1. Standalone](#221-standalone)
-    [2.2.2. Distributed](#222-distributed)
-[3. Configuration Reference](#3-configuration-reference)
-    [3.1. S3 Specific Options](#31-s3-specific-options)
-    [3.2. Other Options](#32-other-options)
-[4. Usage](#4-usage)
-    [4.1. Main functionality](#41-main-functionality)
-    [4.1. HTTP functionality](#41-http-functionality)
-    [4.2. Object Tagging](#42-object-tagging)
+1. [Features](#1-features)<br/>
+2. [Deployment](#2-deployment)<br/>
+        2.1. [Jar](#21-jar)<br/>
+        2.2. [Docker](#22-docker)<br/>
+3. [Configuration Reference](#3-configuration-reference)<br/>
+        3.1. [S3 Specific Options](#31-s3-specific-options)<br/>
+        3.2. [Other Options](#32-other-options)<br/>
+4. [Usage](#4-usage)<br/>
+    4.1. [Main functionality](#41-main-functionality)<br/>
+    4.1. [HTTP functionality](#41-http-functionality)<br/>
+    4.2. [Object Tagging](#42-object-tagging)<br/>
 
 ## 1. Features
 
