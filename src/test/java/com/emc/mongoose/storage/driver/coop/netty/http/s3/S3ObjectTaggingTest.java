@@ -125,7 +125,7 @@ extends S3StorageDriver<DataItem, DataOperation<DataItem>> {
 	private S3ObjectTaggingTest(final Config config)
 	throws Exception {
 		super(
-			"test-storage-driver-s3", DataInput.instance(null, "7a42d9c483244167", new SizeInBytes("4MB"), 16),
+			"test-storage-driver-s3", DataInput.instance(null, "7a42d9c483244167", new SizeInBytes("4MB"), 16, false),
 			config.configVal("storage"), false, config.intVal("load-batch-size"));
 	}
 
