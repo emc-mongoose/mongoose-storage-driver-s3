@@ -77,12 +77,12 @@ import org.xml.sax.SAXException;
 public class S3StorageDriver<I extends Item, O extends Operation<I>>
 				extends HttpStorageDriverBase<I, O> {
 
-	private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
-	private static final ThreadLocal<SAXParser> THREAD_LOCAL_XML_PARSER = new ThreadLocal<>();
-	private static final ThreadLocal<StringBuilder> BUFF_CANONICAL = ThreadLocal.withInitial(StringBuilder::new),
+	protected static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
+	protected static final ThreadLocal<SAXParser> THREAD_LOCAL_XML_PARSER = new ThreadLocal<>();
+	protected static final ThreadLocal<StringBuilder> BUFF_CANONICAL = ThreadLocal.withInitial(StringBuilder::new),
 					BUCKET_LIST_QUERY = ThreadLocal.withInitial(StringBuilder::new);
-	private static final ThreadLocal<Map<String, Mac>> MAC_BY_SECRET = ThreadLocal.withInitial(HashMap::new);
-	private static final Function<String, Mac> GET_MAC_BY_SECRET = secret -> {
+	protected static final ThreadLocal<Map<String, Mac>> MAC_BY_SECRET = ThreadLocal.withInitial(HashMap::new);
+	protected static final Function<String, Mac> GET_MAC_BY_SECRET = secret -> {
 		final var secretKey = new SecretKeySpec(secret.getBytes(UTF_8), S3Api.SIGN_METHOD);
 		try {
 			final var mac = Mac.getInstance(S3Api.SIGN_METHOD);
@@ -319,7 +319,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	}
 
 	@Override
-	public final List<I> list(
+	public List<I> list(
 					final ItemFactory<I> itemFactory,
 					final String path,
 					final String prefix,
