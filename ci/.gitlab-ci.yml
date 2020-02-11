@@ -12,6 +12,8 @@ variables:
 services:
   - docker:18.09.7-dind
 
+# if specific gitlab Runner is configured to run stages make sure that /etc/gitlab-runner/config.toml has
+# privileged = true flag. Otherwise docker container can't start a docker daemon.
 stages:
   - build
   - test # unit/integration tests
@@ -148,20 +150,4 @@ release_to_docker_hub:
     - latest
   except:
     - branches
-#stages:
-#  - debug_docker
-#
-#
-#debug_docker:
-#  stage: debug_docker
-#  image: docker:18.09.7
-#  services:
-#    - docker:18.09.7-dind
-#  variables:
-#    SERVICE_HOST: docker
-#    DOCKER_HOST: tcp://docker:2375
-#    DOCKER_DRIVER: overlay2
-#  script:
-#    - docker ps
-#  tags:
-#    - s3
+
