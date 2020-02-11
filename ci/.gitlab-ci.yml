@@ -154,9 +154,9 @@ stages:
 
 debug_docker:
   stage: debug_docker
-  image: docker:stable
+  image: docker:18.09.7
   services:
-    - docker:dind
+    - docker:18.09.7-dind
   variables:
     SERVICE_HOST: docker
     DOCKER_HOST: tcp://docker:2375
