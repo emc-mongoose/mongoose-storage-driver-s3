@@ -54,8 +54,8 @@ build:
   stage: build
   script:
     - ./gradlew clean jar
-  tags:
-    - s3
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - build/libs/mongoose-*.jar
@@ -64,16 +64,16 @@ test_unit:
   stage: test
   script:
     - ./gradlew test
-  tags:
-    - s3
+  #tags:
+  #  - s3
 
 
 test_integration:
   stage: test
   script:
     - ./gradlew integrationTest
-  tags:
-    - s3
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - build/reports/tests/integrationTest/*
@@ -85,8 +85,8 @@ build_docker_image:
     - ./gradlew dockerBuildImage
     - export VERSION=$(cat build.gradle | grep version\ = | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - docker save ${IMAGE_NAME}:${VERSION} > ${IMAGE_FILE_NAME}
-  tags:
-    - s3
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - ${IMAGE_FILE_NAME}
@@ -111,8 +111,8 @@ build_docker_image:
     - robot --outputdir build/robotest --suite ${SUITE} --include ${TEST} src/test/robot
   after_script:
     - rebot build/robotest/output.xml
-  tags:
-    - s3
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - build/robotest/*.html
