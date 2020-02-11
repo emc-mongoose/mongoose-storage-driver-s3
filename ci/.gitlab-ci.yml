@@ -148,6 +148,10 @@
 #    - latest
 #  except:
 #    - branches
+stages:
+  - debug_docker
+
+
 debug_docker:
   stage: debug_docker
   image: docker:stable
@@ -159,3 +163,5 @@ debug_docker:
     DOCKER_DRIVER: overlay2
   script:
     - docker ps
+  tags:
+    - s3
