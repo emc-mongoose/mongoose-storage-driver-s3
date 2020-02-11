@@ -64,7 +64,8 @@ test_unit:
     - ./gradlew test
   tags:
     - s3
-    -
+
+      
 test_integration:
   stage: test
   script:
