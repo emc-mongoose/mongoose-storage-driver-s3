@@ -1,4 +1,4 @@
-image: docker:stable
+image: docker:18.09.7
 
 variables:
   DOCKER_HOST: tcp://docker:2375
@@ -10,8 +10,10 @@ variables:
   SERVICE_HOST: docker # should be used instead of the "localhost"/"127.0.0.1" in GL CI
 
 services:
-  - docker:dind
+  - docker:18.09.7-dind
 
+# if specific gitlab Runner is configured to run stages make sure that /etc/gitlab-runner/config.toml has
+# privileged = true flag. Otherwise docker container can't start a docker daemon.
 stages:
   - build
   - test # unit/integration tests
@@ -52,6 +54,8 @@ build:
   stage: build
   script:
     - ./gradlew clean jar
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - build/libs/mongoose-*.jar
@@ -60,11 +64,16 @@ test_unit:
   stage: test
   script:
     - ./gradlew test
+  #tags:
+  #  - s3
+
 
 test_integration:
   stage: test
   script:
     - ./gradlew integrationTest
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - build/reports/tests/integrationTest/*
@@ -76,6 +85,8 @@ build_docker_image:
     - ./gradlew dockerBuildImage
     - export VERSION=$(cat build.gradle | grep version\ = | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - docker save ${IMAGE_NAME}:${VERSION} > ${IMAGE_FILE_NAME}
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - ${IMAGE_FILE_NAME}
@@ -100,6 +111,8 @@ build_docker_image:
     - robot --outputdir build/robotest --suite ${SUITE} --include ${TEST} src/test/robot
   after_script:
     - rebot build/robotest/output.xml
+  #tags:
+  #  - s3
   artifacts:
     paths:
       - build/robotest/*.html
@@ -137,3 +150,4 @@ release_to_docker_hub:
     - latest
   except:
     - branches
+

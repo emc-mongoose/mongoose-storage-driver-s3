@@ -17,7 +17,7 @@ import java.util.List;
 Created by andrey on 02.12.16.
 */
 public final class BucketXmlListingHandler<I extends Item>
-				extends DefaultHandler {
+				extends DefaultHandler implements S3XmlListingHandler {
 
 	private int count = 0;
 	private boolean isInsideItem = false;
@@ -110,6 +110,7 @@ public final class BucketXmlListingHandler<I extends Item>
 		super.characters(buff, start, length);
 	}
 
+	@Override
 	public final boolean isTruncated() {
 		return isTruncatedFlag;
 	}
