@@ -230,37 +230,39 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 
 		// check the bucket versioning state
-		final var bucketVersioningReqUri = bucketPath + "?" + S3Api.URL_ARG_VERSIONING;
-		reqHeaders = new DefaultHttpHeaders();
-		reqHeaders.set(HttpHeaderNames.HOST, nodeAddr);
-		reqHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
-		applyDynamicHeaders(reqHeaders);
-		applySharedHeaders(reqHeaders);
-		applyAuthHeaders(reqHeaders, HttpMethod.GET, bucketVersioningReqUri, credential);
-		final FullHttpRequest getBucketVersioningReq = new DefaultFullHttpRequest(
-						HttpVersion.HTTP_1_1,
-						HttpMethod.GET,
-						bucketVersioningReqUri,
-						Unpooled.EMPTY_BUFFER,
-						reqHeaders,
-						EmptyHttpHeaders.INSTANCE);
-		final FullHttpResponse getBucketVersioningResp;
-		try {
-			getBucketVersioningResp = executeHttpRequest(getBucketVersioningReq);
-			if (getBucketVersioningResp == null) {
-				Loggers.ERR.warn("Response timeout");
-			} else {
-				try {
-					handleCheckBucketVersioningResponse(
-									getBucketVersioningResp, nodeAddr, bucketVersioningReqUri);
-				} finally {
-					getBucketVersioningResp.release();
+		if (versioning) {
+			final var bucketVersioningReqUri = bucketPath + "?" + S3Api.URL_ARG_VERSIONING;
+			reqHeaders = new DefaultHttpHeaders();
+			reqHeaders.set(HttpHeaderNames.HOST, nodeAddr);
+			reqHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
+			applyDynamicHeaders(reqHeaders);
+			applySharedHeaders(reqHeaders);
+			applyAuthHeaders(reqHeaders, HttpMethod.GET, bucketVersioningReqUri, credential);
+			final FullHttpRequest getBucketVersioningReq = new DefaultFullHttpRequest(
+					HttpVersion.HTTP_1_1,
+					HttpMethod.GET,
+					bucketVersioningReqUri,
+					Unpooled.EMPTY_BUFFER,
+					reqHeaders,
+					EmptyHttpHeaders.INSTANCE);
+			final FullHttpResponse getBucketVersioningResp;
+			try {
+				getBucketVersioningResp = executeHttpRequest(getBucketVersioningReq);
+				if (getBucketVersioningResp == null) {
+					Loggers.ERR.warn("Response timeout");
+				} else {
+					try {
+						handleCheckBucketVersioningResponse(
+								getBucketVersioningResp, nodeAddr, bucketVersioningReqUri);
+					} finally {
+						getBucketVersioningResp.release();
+					}
 				}
+			} catch (final InterruptedException e) {
+				throwUnchecked(e);
+			} catch (final ConnectException e) {
+				LogUtil.exception(Level.WARN, e, "Failed to connect to the storage node");
 			}
-		} catch (final InterruptedException e) {
-			throwUnchecked(e);
-		} catch (final ConnectException e) {
-			LogUtil.exception(Level.WARN, e, "Failed to connect to the storage node");
 		}
 		return path;
 	}
