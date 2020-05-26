@@ -2,7 +2,7 @@
 [![Issue Tracker](https://img.shields.io/badge/Issue-Tracker-red.svg)](https://mongoose-issues.atlassian.net/projects/GOOSE)
 [![CI status](https://gitlab.com/emc-mongoose/mongoose-storage-driver-s3/badges/master/pipeline.svg)](https://gitlab.com/emc-mongoose/mongoose-storage-driver-s3/commits/master)
 [![Tag](https://img.shields.io/github/tag/emc-mongoose/mongoose-storage-driver-s3.svg)](https://github.com/emc-mongoose/mongoose-storage-driver-s3/tags)
-[![Maven metadata URL](https://img.shields.io/maven-metadata/v/http/central.maven.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3/maven-metadata.xml.svg)](http://central.maven.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3)
+[![Maven metadata URL](https://img.shields.io/maven-metadata/v/https/central.maven.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3/maven-metadata.xml.svg)](https://central.maven.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3)
 [![Sonatype Nexus (Releases)](https://img.shields.io/nexus/r/http/oss.sonatype.org/com.github.emc-mongoose/mongoose-storage-driver-s3.svg)](http://oss.sonatype.org/com.github.emc-mongoose/mongoose-storage-driver-s3)
 [![Docker Pulls](https://img.shields.io/docker/pulls/emcmongoose/mongoose-storage-driver-s3.svg)](https://hub.docker.com/r/emcmongoose/mongoose-storage-driver-s3/)
 
@@ -69,23 +69,23 @@ Mongoose storage driver extention for testing of **S3 type storages**. The repo 
 Java 11+ is required to build/run.
 
 1. Get the latest `mongoose-base` jar from the 
-[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-base/)
+[maven repo](https://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-base/)
 and put it to your working directory. Note the particular version, which is referred as *BASE_VERSION* below.
 
 2. Get the latest `mongoose-storage-driver-coop` jar from the
-[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-coop/)
+[maven repo](https://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-coop/)
 and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
 
 3. Get the latest `mongoose-storage-driver-netty` jar from the
-[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-netty/)
+[maven repo](https://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-netty/)
 and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
 
 4. Get the latest `mongoose-storage-driver-http` jar from the
-[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-http/)
+[maven repo](https://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-http/)
 and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
 
 5. Get the latest `mongoose-storage-driver-s3` jar from the
-[maven repo](http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3/)
+[maven repo](https://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-s3/)
 and put it to the `~/.mongoose/<BASE_VERSION>/ext` directory.
 
 ```bash
