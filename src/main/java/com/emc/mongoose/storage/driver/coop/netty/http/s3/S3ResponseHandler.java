@@ -27,7 +27,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 /**
 Created by andrey on 25.11.16.
 */
-public final class S3ResponseHandler<I extends Item, O extends Operation<I>>
+public class S3ResponseHandler<I extends Item, O extends Operation<I>>
 				extends HttpResponseHandlerBase<I, O> {
 
 	private static final AttributeKey<ByteBuf> CONTENT_ATTR_KEY = AttributeKey.newInstance(
