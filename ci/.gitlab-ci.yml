@@ -54,8 +54,8 @@ build:
   stage: build
   script:
     - ./gradlew clean jar
-  tags:
-    - s3
+#  tags:
+#    - s3
   artifacts:
     paths:
       - build/libs/mongoose-*.jar
@@ -64,16 +64,16 @@ test_unit:
   stage: test
   script:
     - ./gradlew test
-  tags:
-    - s3
+#  tags:
+#    - s3
 
 
 test_integration:
   stage: test
   script:
     - ./gradlew integrationTest
-  tags:
-    - s3
+#  tags:
+#    - s3
   artifacts:
     paths:
       - build/reports/tests/integrationTest/*
@@ -85,8 +85,8 @@ build_docker_image:
     - ./gradlew dockerBuildImage
     - export VERSION=$(cat build.gradle | grep version\ = | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - docker save ${IMAGE_NAME}:${VERSION} > ${IMAGE_FILE_NAME}
-  tags:
-    - s3
+#  tags:
+#    - s3
   artifacts:
     paths:
       - ${IMAGE_FILE_NAME}
@@ -95,14 +95,14 @@ build_docker_image:
   stage: test_functional
   variables:
     HOST_WORKING_DIR: ${CI_PROJECT_DIR}
-    PYTHONPATH: ${PYTHONPATH}:/usr/lib/python2.7/site-packages:src/test/robot/lib
+    PYTHONPATH: ${PYTHONPATH}:/usr/lib/python3.8/site-packages:src/test/robot/lib
   before_script:
-    - apk add --no-cache --update python py-pip
+    - apk add --no-cache --update python3 py-pip
     - pip install -U virtualenv
     - pip install -U requests
     - pip install -U robotframework
     - pip install -U robotframework-requests
-    - pip install -U robotframework-csvlibrary
+    - pip install -U robotframework-csvlib
   script:
     - export BASE_VERSION=$(cat build.gradle | grep mongooseBase  | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - export VERSION=$(cat build.gradle | grep version\ = | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
@@ -111,8 +111,8 @@ build_docker_image:
     - robot --outputdir build/robotest --suite ${SUITE} --include ${TEST} src/test/robot
   after_script:
     - rebot build/robotest/output.xml
-  tags:
-    - s3
+#  tags:
+#    - s3
   artifacts:
     paths:
       - build/robotest/*.html
@@ -132,8 +132,8 @@ release_to_maven_repo:
     - mkdir /tmp/.gnupg
     - if [ ! -z "$GPG_SECRING" ]; then echo $GPG_SECRING | base64 -d > /tmp/.gnupg/secring.gpg; fi
     - ./gradlew -Psigning.keyId=${SIGNING_KEY_ID} -Psigning.password=${SIGNING_PASSWORD} -Psigning.secretKeyRingFile=/tmp/.gnupg/secring.gpg -PossrhUsername=${OSSRH_USERNAME} -PossrhPassword=${OSSRH_PASSWORD} publishToNexus closeAndReleaseRepository
-  tags:
-    - s3
+#  tags:
+#    - s3
   only:
     - latest
   except:
@@ -148,8 +148,8 @@ release_to_docker_hub:
     - docker push ${IMAGE_NAME}:${VERSION}
     - docker tag ${IMAGE_NAME}:${VERSION} ${IMAGE_NAME}:latest
     - docker push ${IMAGE_NAME}:latest
-  tags:
-    - s3
+#  tags:
+#    - s3
   only:
     - latest
   except:

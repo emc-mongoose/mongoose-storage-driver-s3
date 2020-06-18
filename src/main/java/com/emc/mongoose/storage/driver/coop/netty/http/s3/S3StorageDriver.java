@@ -119,13 +119,13 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		fsAccess = objectConfig.boolVal("fsAccess");
 		final var taggingConfig = objectConfig.configVal("tagging");
 		taggingEnabled = taggingConfig.boolVal("enabled");
-		if(taggingEnabled) {
+		if (taggingEnabled) {
 			Loggers.MSG.info("{}: S3 Object Tagging Mode Enabled", stepId);
 		}
 		final var tags = taggingConfig.<String>mapVal("tags");
 		final StringBuilder exprBuff = new StringBuilder();
 		exprBuff.append(TAGGING_HEADER);
-		for(final var tagEntry: tags.entrySet()) {
+		for (final var tagEntry : tags.entrySet()) {
 			final var k = tagEntry.getKey();
 			final var v = tagEntry.getValue();
 			exprBuff
@@ -137,7 +137,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 		exprBuff.append(TAGGING_FOOTER);
 		final var taggingContentExpr = exprBuff.toString();
-		if(taggingEnabled) {
+		if (taggingEnabled) {
 			Loggers.MSG.debug("{}: tagging content pattern: {}", stepId, taggingContentExpr);
 		}
 		if(
@@ -157,7 +157,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	}
 
 	@Override
-	protected String requestNewPath(final String path)  {
+	protected String requestNewPath(final String path) {
 		final var relPath = path.startsWith(SLASH) ? path.substring(1) : path;
 		final var slashPos = relPath.indexOf(SLASH);
 		final var bucketPath = SLASH + (slashPos > 0 ? relPath.substring(0, slashPos) : relPath);
@@ -638,7 +638,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	}
 
 	@Override
-	protected final void appendHandlers(final Channel channel) {
+	protected void appendHandlers(final Channel channel) {
 		super.appendHandlers(channel);
 		channel.pipeline().addLast(new S3ResponseHandler<>(this, verifyFlag));
 	}
