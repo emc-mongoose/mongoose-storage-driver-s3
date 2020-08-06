@@ -39,8 +39,8 @@ Mongoose storage driver extention for testing of **S3 type storages**. The repo 
 * Path listing input (with XML response payload)
 * Data item operation types:
     * `create`
-        * [copy](../../../../../../doc/design/copy_mode/README.md)
-        * [Multipart Upload](../../../../../../src/main/java/com/emc/mongoose/base/item/op/composite/README.md)
+        * [copy](https://github.com/emc-mongoose/mongoose-base/tree/master/doc/usage/load/operations/types#12-copy-mode)
+        * [Multipart Upload](https://github.com/emc-mongoose/mongoose-base/tree/master/doc/usage/load/operations/composite)
     * `read`
         * full
         * random byte ranges
