@@ -41,7 +41,7 @@ ext {
 		junit              : "4.12",
 		log4j              : "2.8.2",
 		mongooseBase       : "4.2.19",
-		mongooseStorageDriverCoop: "4.2.18",
+		mongooseStorageDriverCoop: "4.2.20",
 		mongooseStorageDriverNetty: "4.2.17",
 		mongooseStorageDriverHttp: "4.2.19",
 		netty              : "4.1.25.Final",
