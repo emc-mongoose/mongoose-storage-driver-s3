@@ -103,6 +103,7 @@ extends S3StorageDriver<DataItem, DataOperation<DataItem>> {
 			);
 			config.val("storage-object-versioning", true);
 			config.val("storage-net-http-headers", new HashMap<>());
+			config.val("storage-net-http-read-metadata-only", false);
 			config.val("storage-net-http-uri-args", Collections.EMPTY_MAP);
 			config.val("storage-auth-uid", CREDENTIAL.getUid());
 			config.val("storage-auth-token", null);
