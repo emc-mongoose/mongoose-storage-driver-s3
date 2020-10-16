@@ -114,6 +114,7 @@ public class S3StorageDriverTest
 									put("Date", "#{date:formatNowRfc1123()}%{date:formatNowRfc1123()}");
 								}
 							});
+			config.val("storage-net-http-read-metadata-only", false);
 			config.val("storage-net-http-uri-args", Collections.EMPTY_MAP);
 			config.val("storage-auth-uid", CREDENTIAL.getUid());
 			config.val("storage-auth-token", null);
