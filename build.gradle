@@ -77,7 +77,7 @@ dependencies {
 		"com.github.emc-mongoose:mongoose-base:${depVersion.mongooseBase}",
 		"com.github.emc-mongoose:mongoose-storage-driver-coop:${depVersion.mongooseStorageDriverCoop}",
 		"com.github.emc-mongoose:mongoose-storage-driver-netty:${depVersion.mongooseStorageDriverNetty}",
-		"com.github.emc-mongoose:mongoose-storage-driver-http:${depVersion.mongooseStorageDriverNetty}",
+		"com.github.emc-mongoose:mongoose-storage-driver-http:${depVersion.mongooseStorageDriverHttp}",
 		"com.github.akurilov:confuse:${depVersion.confuse}",
 		"com.github.akurilov:confuse-io-yaml:${depVersion.confuseIoYaml}",
 		"com.github.akurilov:java-commons:${depVersion.javaCommons}",
@@ -252,7 +252,7 @@ task dockerBuildImage(type: DockerBuildImage) {
 	inputDir = project.projectDir
 	buildArgs = [
 		"BASE_VERSION": depVersion.mongooseBase,
-		"STORAGE_DRIVER_COOP_VERSION": depVersion.mongooseStorageDriverHttp,
+		"STORAGE_DRIVER_COOP_VERSION": depVersion.mongooseStorageDriverCoop,
 		"STORAGE_DRIVER_NETTY_VERSION": depVersion.mongooseStorageDriverNetty,
 		"STORAGE_DRIVER_HTTP_VERSION": depVersion.mongooseStorageDriverHttp,
 		"VERSION": version,
