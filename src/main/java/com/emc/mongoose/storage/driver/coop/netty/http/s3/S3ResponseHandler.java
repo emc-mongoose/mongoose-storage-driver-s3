@@ -36,9 +36,12 @@ public final class S3ResponseHandler<I extends Item, O extends Operation<I>>
 	private static final int MAX_CONTENT_SIZE = 0x400;
 	private static final Pattern PATTERN_UPLOAD_ID = Pattern.compile(
 					"<UploadId>([a-zA-Z\\d\\-_+=/]+)</UploadId>", Pattern.MULTILINE);
+	private final boolean versioningEnabled;
 
-	public S3ResponseHandler(final S3StorageDriver<I, O> driver, final boolean verifyFlag) {
+	public S3ResponseHandler(final S3StorageDriver<I, O> driver, final boolean verifyFlag,
+							 final boolean versioningEnabled) {
 		super(driver, verifyFlag);
+		this.versioningEnabled = versioningEnabled;
 	}
 
 	@Override
@@ -48,6 +51,9 @@ public final class S3ResponseHandler<I extends Item, O extends Operation<I>>
 			final String eTag = respHeaders.get(HttpHeaderNames.ETAG);
 			final CompositeDataOperation mpuTask = subTask.parent();
 			mpuTask.put(Integer.toString(subTask.partNumber() + 1), eTag);
+		}
+		if (versioningEnabled) {
+			op.item().name(op.item().name() + "~" + respHeaders.get("x-amz-version-id"));
 		}
 	}
 

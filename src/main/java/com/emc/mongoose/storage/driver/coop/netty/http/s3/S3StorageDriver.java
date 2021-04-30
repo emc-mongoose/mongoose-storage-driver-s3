@@ -27,6 +27,7 @@ import com.emc.mongoose.base.item.ItemFactory;
 import com.emc.mongoose.base.item.op.OpType;
 import com.emc.mongoose.base.item.op.Operation;
 import com.emc.mongoose.base.item.op.composite.data.CompositeDataOperation;
+import com.emc.mongoose.base.item.op.data.DataOperation;
 import com.emc.mongoose.base.item.op.partial.data.PartialDataOperation;
 import com.emc.mongoose.base.logging.LogUtil;
 import com.emc.mongoose.base.logging.Loggers;
@@ -153,6 +154,9 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			taggingContentInput = new ConstantValueInputImpl<>(taggingContentExpr);
 		}
 		versioning = objectConfig.boolVal("versioning");
+		if (versioning) {
+			Loggers.MSG.info("Versioning is enabled. Make sure that if you use input items list it has version ids");
+		}
 		requestAuthTokenFunc = null; // do not use
 	}
 
@@ -425,6 +429,8 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			}
 		} else if (taggingEnabled) {
 			httpRequest = objectTaggingRequest(op, nodeAddr);
+		} else if (versioning) {
+			httpRequest = objectVersioningRequest(op, nodeAddr);
 		} else {
 			httpRequest = super.httpRequest(op, nodeAddr);
 		}
@@ -560,6 +566,67 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		return httpRequest;
 	}
 
+	HttpRequest objectVersioningRequest(final O op, final String nodeAddr) throws URISyntaxException {
+		final var srcPath = op.srcPath();
+		final var item = (I) op.item();
+		final var opType = op.type();
+		final HttpHeaders httpHeaders = new DefaultHttpHeaders();
+		// /<bucket>/<itemName>~<versionId>,
+		// /bucket/30auvg3756cw~16788129946F0FF5,57ec29fc427c270,10,0/0
+		var indexOfVersionStart = item.name().lastIndexOf('~');
+		// versioning relies on the fact that ~ is used for versions only
+		// so far ecs doesn't use ~ symbol in versionId. If that changes, then algorithm will break
+		// another chance for it to break is when ~ is used in bucket name, versioning enabled, but
+		// no actual version is provided. That can happen on the first run for creates
+		String versionId = null;
+		if (indexOfVersionStart != -1) {
+			versionId = item.name().substring(indexOfVersionStart + 1);
+			item.name(item.name().substring(0, indexOfVersionStart));
+		}
+		httpHeaders.set(HttpHeaderNames.HOST, nodeAddr);
+		final var httpMethod = dataHttpMethod(opType);
+		final var uri = dataUriPath(item, srcPath, op.dstPath(), op.type());
+		final var httpRequest = (HttpRequest) new DefaultHttpRequest(HTTP_1_1, httpMethod, uri, httpHeaders);
+		switch (opType) {
+			case CREATE:
+				if (srcPath == null || srcPath.isEmpty()) {
+					if (item instanceof DataItem) {
+						try {
+							httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, ((DataItem) item).size());
+						} catch (final IOException ignored) {}
+					} else {
+						httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
+					}
+				} else {
+					applyCopyHeaders(httpHeaders, dataUriPath(item, srcPath, null, opType));
+					httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
+				}
+				break;
+			case READ:
+				httpHeaders.set("x-amz-version-id", versionId);
+				httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
+				if (op instanceof DataOperation) {
+					applyRangesHeaders(httpHeaders, (DataOperation) op);
+				}
+				break;
+			case UPDATE:
+				httpHeaders.set("x-amz-version-id", versionId);
+				final var dataOp = (DataOperation) op;
+				httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, dataOp.markedRangesSize());
+				applyRangesHeaders(httpHeaders, dataOp);
+				break;
+			case DELETE:
+				httpHeaders.set("x-amz-version-id", versionId);
+				httpHeaders.set(HttpHeaderNames.CONTENT_LENGTH, 0);
+				break;
+		}
+		applyMetaDataHeaders(httpHeaders);
+		applyDynamicHeaders(httpHeaders);
+		applySharedHeaders(httpHeaders);
+		applyAuthHeaders(httpHeaders, httpRequest.method(), uri, op.credential());
+		return httpRequest;
+	}
+
 	FullHttpRequest objectTaggingRequest(final O op, final String nodeAddr) {
 		final var srcPath = op.srcPath();
 		final var item = (I) op.item();
@@ -640,7 +707,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	@Override
 	protected void appendHandlers(final Channel channel) {
 		super.appendHandlers(channel);
-		channel.pipeline().addLast(new S3ResponseHandler<>(this, verifyFlag));
+		channel.pipeline().addLast(new S3ResponseHandler<>(this, verifyFlag, versioning));
 	}
 
 	@Override
