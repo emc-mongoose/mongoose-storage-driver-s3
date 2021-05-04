@@ -106,7 +106,7 @@ public class S3StorageDriverTest
 			config.val("storage-object-fsAccess", true);
 			config.val("storage-object-tagging-enabled", false);
 			config.val("storage-object-tagging-tags", new HashMap<>());
-			config.val("storage-object-versioning", true);
+			config.val("storage-object-versioning", false);
 			config.val(
 							"storage-net-http-headers",
 							new HashMap<String, String>() {
@@ -166,7 +166,7 @@ public class S3StorageDriverTest
 		final String bucketName = "/bucket0";
 		final String result = requestNewPath(bucketName);
 		assertEquals(bucketName, result);
-		assertEquals(3, httpRequestsLog.size());
+		assertEquals(1, httpRequestsLog.size());
 
 		final FullHttpRequest req0 = httpRequestsLog.poll();
 		assertEquals(HttpMethod.HEAD, req0.method());
@@ -179,35 +179,6 @@ public class S3StorageDriverTest
 		assertEquals(new Date().getTime(), reqDate0.getTime(), 10_000);
 		final String authHeaderValue0 = reqHeaders0.get(HttpHeaderNames.AUTHORIZATION);
 		assertTrue(authHeaderValue0.startsWith("AWS " + CREDENTIAL.getUid() + ":"));
-
-		final FullHttpRequest req1 = httpRequestsLog.poll();
-		assertEquals(HttpMethod.GET, req1.method());
-		assertEquals(bucketName + "?versioning", req1.uri());
-		final HttpHeaders reqHeaders1 = req1.headers();
-		assertEquals(storageNodeAddrs[0], reqHeaders1.get(HttpHeaderNames.HOST));
-		assertEquals(0, reqHeaders1.getInt(HttpHeaderNames.CONTENT_LENGTH).intValue());
-		final Date reqDate1 = DateUtil.FMT_DATE_RFC1123.parse(
-						reqHeaders1.get(HttpHeaderNames.DATE));
-		assertEquals(
-						"Date differs from now " + new Date() + " more than 10 sec: " + reqDate1,
-						new Date().getTime(), reqDate1.getTime(), 10_000);
-		final String authHeaderValue1 = reqHeaders1.get(HttpHeaderNames.AUTHORIZATION);
-		assertTrue(authHeaderValue1.startsWith("AWS " + CREDENTIAL.getUid() + ":"));
-
-		final FullHttpRequest req2 = httpRequestsLog.poll();
-		assertEquals(HttpMethod.PUT, req2.method());
-		assertEquals(bucketName + "?versioning", req2.uri());
-		final HttpHeaders reqHeaders2 = req2.headers();
-		assertEquals(storageNodeAddrs[0], reqHeaders2.get(HttpHeaderNames.HOST));
-		final Date reqDate2 = DateUtil.FMT_DATE_RFC1123.parse(
-						reqHeaders2.get(HttpHeaderNames.DATE));
-		assertEquals(new Date().getTime(), reqDate2.getTime(), 10_000);
-		final String authHeaderValue2 = reqHeaders2.get(HttpHeaderNames.AUTHORIZATION);
-		assertTrue(authHeaderValue2.startsWith("AWS " + CREDENTIAL.getUid() + ":"));
-		final byte[] reqContent2 = req2.content().array();
-		assertEquals(S3Api.VERSIONING_ENABLE_CONTENT, reqContent2);
-		assertEquals(
-						reqContent2.length, reqHeaders2.getInt(HttpHeaderNames.CONTENT_LENGTH).intValue());
 	}
 
 	@Test
