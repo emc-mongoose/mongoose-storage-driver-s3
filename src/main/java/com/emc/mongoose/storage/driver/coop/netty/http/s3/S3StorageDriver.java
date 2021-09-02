@@ -175,8 +175,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 		var authVersionTemp = storageConfig.intVal("auth-version");
 		if ((authVersionTemp != 2) && (authVersionTemp != 4)) {
-			Loggers.MSG.warn("S3 auth version is not 2 or 4. Resetting to 2.");
-			authVersionTemp = 2;
+			throw new AssertionError("Only 2 and 4 versions are supported");
 		}
 		authVersion = authVersionTemp;
 		requestAuthTokenFunc = null; // do not use
@@ -820,7 +819,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 				httpHeaders.set(
 						HttpHeaderNames.AUTHORIZATION,
 						S3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
-			} else {
+			} else if (authVersion == 4) {
 				final var datetime = httpHeaders.get(HttpHeaderNames.DATE);
 				final var date = datetime.substring(0,8); // 8 chars as Pattern("yyyyMMdd") goes
 
@@ -849,6 +848,8 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 						.append(bytesToHex(sigData));
 				httpHeaders.set(
 						HttpHeaderNames.AUTHORIZATION, sb.toString());
+			} else {
+				throw new AssertionError("Not implemented yet");
 			}
 		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
 			Loggers.MSG.warn("Couldn't complete HmacSHA256 for auth v4. Either secret is incorrect " +

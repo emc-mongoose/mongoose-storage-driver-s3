@@ -30,8 +30,8 @@ Mongoose storage driver extention for testing of **S3 type storages**. The repo 
 
 * API version: 2006-03-01
 * Authentification:
-    * [v2](https://docs.aws.amazon.com/general/latest/gr/signature-version-2.html) 
-    * [v4](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html) (by default)
+    * [v2](https://docs.aws.amazon.com/general/latest/gr/signature-version-2.html) (by default)
+    * [v4](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html)
 * SSL/TLS
 * Item types:
     * `data` (--> "object")
