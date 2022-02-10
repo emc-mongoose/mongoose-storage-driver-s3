@@ -15,6 +15,8 @@ public interface S3Api {
 
 	String AUTH_PREFIX = "AWS ";
 
+	String AUTH_V4_PREFIX = "AWS4-HMAC-SHA256 ";
+
 	String KEY_X_AMZ_COPY_SOURCE = PREFIX_KEY_X_AMZ + "copy-source";
 
 	String KEY_X_AMZ_SECURITY_TOKEN = PREFIX_KEY_X_AMZ + "security-token";
@@ -26,9 +28,18 @@ public interface S3Api {
 			HttpHeaderNames.DATE
 	};
 
+	AsciiString HEADERS_CANONICAL_V4[] = {
+			HttpHeaderNames.CONTENT_MD5,
+			HttpHeaderNames.CONTENT_TYPE,
+			//HttpHeaderNames.RANGE,
+			HttpHeaderNames.DATE,
+			HttpHeaderNames.HOST,
+	};
 	String URL_ARG_VERSIONING = "versioning";
 
 	String SIGN_METHOD = "HmacSHA1";
+
+	String SIGN_V4_METHOD = "HmacSHA256";
 
 	byte[] VERSIONING_ENABLE_CONTENT = ("<VersioningConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">" +
 					"<Status>Enabled</Status></VersioningConfiguration>").getBytes(StandardCharsets.US_ASCII);

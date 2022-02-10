@@ -82,6 +82,11 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	protected static final ThreadLocal<SAXParser> THREAD_LOCAL_XML_PARSER = new ThreadLocal<>();
 	protected static final ThreadLocal<StringBuilder> BUFF_CANONICAL = ThreadLocal.withInitial(StringBuilder::new),
 					BUCKET_LIST_QUERY = ThreadLocal.withInitial(StringBuilder::new);
+	//for v4 only
+	// TODO: compare to ConcurrentHashMap
+	protected final ThreadLocal<Map<String, SigningKeyCreateFunction>> signingKeyCreateFunctionCache = ThreadLocal.withInitial(HashMap::new);
+	protected final ThreadLocal<Map<String, byte[]>> signingKeyCache = ThreadLocal.withInitial(HashMap::new);
+	// for v2 only
 	protected static final ThreadLocal<Map<String, Mac>> MAC_BY_SECRET = ThreadLocal.withInitial(HashMap::new);
 	protected static final Function<String, Mac> GET_MAC_BY_SECRET = secret -> {
 		final var secretKey = new SecretKeySpec(secret.getBytes(UTF_8), S3Api.SIGN_METHOD);
@@ -102,10 +107,21 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			}
 		}
 	);
+	// sha256 digest and md5 digest are used for different purposes
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_SHA256 = ThreadLocal.withInitial(
+			() -> {
+				try {
+					return MessageDigest.getInstance("SHA-256");
+				} catch(final NoSuchAlgorithmException e) {
+					throw new AssertionError(e);
+				}
+			}
+	);
 
 	protected final boolean fsAccess;
 	protected final boolean taggingEnabled;
 	protected final Input<String> taggingContentInput;
+	protected final int authVersion;
 	protected final boolean versioning;
 
 	public S3StorageDriver(
@@ -157,7 +173,54 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		if (versioning) {
 			Loggers.MSG.info("Versioning is enabled. Make sure that if you use input items list it has version ids");
 		}
+		var authVersionTemp = storageConfig.intVal("auth-version");
+		if ((authVersionTemp != 2) && (authVersionTemp != 4)) {
+			throw new AssertionError("Only 2 and 4 versions are supported");
+		}
+		authVersion = authVersionTemp;
 		requestAuthTokenFunc = null; // do not use
+	}
+
+	static final class SigningKeyCreateFunctionImpl
+			implements SigningKeyCreateFunction {
+
+		String secret;
+
+		public SigningKeyCreateFunctionImpl(final String secret) {
+			this.secret = secret;
+
+		}
+
+		@Override
+		public byte[] apply(final String datestamp) {
+			return getSignatureKey(secret, datestamp);
+		}
+	}
+
+	static byte[] HmacSHA256(String data, byte[] key) throws NoSuchAlgorithmException, InvalidKeyException {
+		Mac mac = Mac.getInstance(S3Api.SIGN_V4_METHOD);
+		mac.init(new SecretKeySpec(key, "RawBytes"));
+		return mac.doFinal(data.getBytes(UTF_8));
+	}
+
+	static byte[] getSignatureKey(String key, String dateStamp) {
+		byte[] kSigning = new byte[0];
+		try {
+			byte[] kSecret = ("AWS4" + key).getBytes(UTF_8);
+			byte[] kDate = HmacSHA256(dateStamp, kSecret);
+			byte[] kRegion = HmacSHA256("", kDate); // region is left empty
+			byte[] kService = HmacSHA256("s3", kRegion);
+			kSigning = HmacSHA256("aws4_request", kService);
+			int[] m = new int[100];
+			for (int i = 0; i < kSigning.length; i++) {
+				m[i] = kSigning[i] & 0xFF;
+			}
+			Loggers.MSG.info("sign key", m);
+		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
+			Loggers.MSG.warn("Couldn't complete HmacSHA256 for auth v4. Either secret is incorrect " +
+					"or used algorithm doesn't exist. \n{}", e.getMessage());
+		}
+		return kSigning;
 	}
 
 	@Override
@@ -716,6 +779,17 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		httpHeaders.set(S3Api.KEY_X_AMZ_COPY_SOURCE, srcPath);
 	}
 
+	private static final byte[] HEX_ARRAY = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
+	protected static String bytesToHex(byte[] bytes) {
+		byte[] hexChars = new byte[bytes.length * 2];
+		for (int j = 0; j < bytes.length; j++) {
+			int v = bytes[j] & 0xFF;
+			hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+			hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+		}
+		return new String(hexChars, StandardCharsets.UTF_8);
+	}
+
 	@Override
 	protected final void applyAuthHeaders(
 					final HttpHeaders httpHeaders,
@@ -736,12 +810,122 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		if (uid == null || secret == null) {
 			return;
 		}
-		final var mac = MAC_BY_SECRET.get().computeIfAbsent(secret, GET_MAC_BY_SECRET);
-		final var canonicalForm = getCanonical(httpHeaders, httpMethod, dstUriPath);
-		final var sigData = mac.doFinal(canonicalForm.getBytes());
-		httpHeaders.set(
+
+		try {
+			if (authVersion == 2) {
+				final var mac = MAC_BY_SECRET.get().computeIfAbsent(secret, GET_MAC_BY_SECRET);
+				final var canonicalForm = getCanonical(httpHeaders, httpMethod, dstUriPath);
+				final var sigData = mac.doFinal(canonicalForm.getBytes());
+				httpHeaders.set(
 						HttpHeaderNames.AUTHORIZATION,
 						S3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
+			} else if (authVersion == 4) {
+				final var datetime = httpHeaders.get(HttpHeaderNames.DATE);
+				final var date = datetime.substring(0,8); // 8 chars as Pattern("yyyyMMdd") goes
+
+				final var signingKeyCreateFunction = signingKeyCreateFunctionCache.get().
+						computeIfAbsent(secret, SigningKeyCreateFunctionImpl::new);
+				final var signingKey  = signingKeyCache.get().computeIfAbsent(date, signingKeyCreateFunction);
+				final Map<String, String> sortedHeaders = getNonCanonicalHeaders(httpHeaders);
+				final var canonicalForm = getCanonicalV4(httpHeaders, sortedHeaders, httpMethod, dstUriPath);
+				byte[] encodedhash = THREAD_LOCAL_SHA256.get().digest(
+						canonicalForm.getBytes(StandardCharsets.UTF_8));
+				String stringToSign = "AWS4-HMAC-SHA256\n" + datetime + "\n" + date
+						+ "//s3/aws4_request\n" + bytesToHex(encodedhash);
+				final var sigData = HmacSHA256(stringToSign, signingKey);
+				Loggers.MSG.info("char seq {}", sortedHeaders.keySet());
+				// 240 is an educated guess based on how v4 auth header looks generally
+				StringBuilder sb = new StringBuilder(240);
+				sb.append(S3Api.AUTH_V4_PREFIX)
+						.append("Credential=")
+						.append(uid)
+						.append('/')
+						.append(date)
+						// "//" this is a region required for v4 auth. left empty.
+						.append("//s3/aws4_request,SignedHeaders=")
+						.append(String.join(";", sortedHeaders.keySet()))
+						.append(",Signature=")
+						.append(bytesToHex(sigData));
+				httpHeaders.set(
+						HttpHeaderNames.AUTHORIZATION, sb.toString());
+			} else {
+				throw new AssertionError("Not implemented yet");
+			}
+		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
+			Loggers.MSG.warn("Couldn't complete HmacSHA256 for auth v4. Either secret is incorrect " +
+					"or used algorithm doesn't exist. \n{}", e.getMessage());
+		}
+	}
+
+	protected Map<String,String> getNonCanonicalHeaders(final HttpHeaders httpHeaders) {
+		String headerName;
+		final Map<String, String> sortedHeaders = new TreeMap<>();
+		if (sharedHeaders != null) {
+			for (final var header : sharedHeaders) {
+				headerName = header.getKey().toLowerCase();
+				if (headerName.startsWith(S3Api.PREFIX_KEY_X_AMZ)) {
+					sortedHeaders.put(headerName, header.getValue());
+				}
+			}
+		}
+		for (final var header : httpHeaders) {
+			headerName = header.getKey().toLowerCase();
+			if (headerName.startsWith(S3Api.PREFIX_KEY_X_AMZ)) {
+				sortedHeaders.put(headerName, header.getValue());
+			}
+		}
+		return sortedHeaders;
+	}
+	protected String getCanonicalV4(final HttpHeaders httpHeaders, final Map<String, String> sortedNonCanonicalHeaders,
+									final HttpMethod httpMethod, final String dstUriPath) {
+		final var buffCanonical = BUFF_CANONICAL.get();
+		buffCanonical.setLength(0); // reset/clear
+		buffCanonical.append(httpMethod.name());
+		buffCanonical.append('\n');
+		buffCanonical.append(dstUriPath);
+		buffCanonical.append('\n');
+		for (final var header : S3Api.HEADERS_CANONICAL_V4) {
+			if (httpHeaders.contains(header)) {
+				for (final var headerValue : httpHeaders.getAll(header)) {
+					sortedNonCanonicalHeaders.put(header.toString(), headerValue);
+				}
+			} else if (sharedHeaders != null && sharedHeaders.contains(header)) {
+				for (final var headerValue : sharedHeaders.getAll(header)) {
+					sortedNonCanonicalHeaders.put(header.toString(), headerValue);
+				}
+			}
+		}
+
+		// x-amz-*
+		for (final var sortedHeader : sortedNonCanonicalHeaders.entrySet()) {
+			buffCanonical
+					.append('\n')
+					.append(sortedHeader.getKey())
+					.append(':')
+					.append(sortedHeader.getValue());
+		}
+		buffCanonical.append("\n\n");
+
+		for (final var sortedHeader : sortedNonCanonicalHeaders.keySet()) {
+			buffCanonical
+					.append(sortedHeader)
+					.append(';');
+		}
+
+		buffCanonical.deleteCharAt(buffCanonical.length() - 1); // to remove last ;
+		buffCanonical.append('\n');
+
+		// last line is equivalent of
+		// MessageDigest digest = MessageDigest.getInstance("SHA-256");
+		// byte[] encodedhash = digest.digest("".getBytes(UTF_8));
+		// String hexHash = bytesToHex(encodedhash);
+		// as we never send the hash of the payload, we don't need this to be calculated each time
+		buffCanonical.append("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+		if (Loggers.MSG.isTraceEnabled()) {
+			Loggers.MSG.trace("Canonical representation:\n{}", buffCanonical);
+		}
+		return buffCanonical.toString();
 	}
 
 	protected String getCanonical(
@@ -761,22 +945,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			}
 		}
 		// x-amz-*
-		String headerName;
-		final Map<String, String> sortedHeaders = new TreeMap<>();
-		if (sharedHeaders != null) {
-			for (final var header : sharedHeaders) {
-				headerName = header.getKey().toLowerCase();
-				if (headerName.startsWith(S3Api.PREFIX_KEY_X_AMZ)) {
-					sortedHeaders.put(headerName, header.getValue());
-				}
-			}
-		}
-		for (final var header : httpHeaders) {
-			headerName = header.getKey().toLowerCase();
-			if (headerName.startsWith(S3Api.PREFIX_KEY_X_AMZ)) {
-				sortedHeaders.put(headerName, header.getValue());
-			}
-		}
+		final Map<String, String> sortedHeaders = getNonCanonicalHeaders(httpHeaders);
 		for (final var sortedHeader : sortedHeaders.entrySet()) {
 			buffCanonical
 							.append('\n')

@@ -25,7 +25,7 @@ repositories {
 
 description = "Mongoose is a high-load storage performance testing tool"
 group = "com.github.emc-mongoose"
-version = "4.2.18"
+version = "4.2.19"
 sourceCompatibility = 11
 targetCompatibility = 11
 
@@ -40,11 +40,11 @@ ext {
 		javassist          : "3.23.1-GA",
 		junit              : "4.12",
 		log4j              : "2.8.2",
-		mongooseBase       : "4.2.19",
+		mongooseBase       : "4.3.2",
 		mongooseStorageDriverCoop: "4.2.20",
 		mongooseStorageDriverNetty: "4.2.17",
 		mongooseStorageDriverHttp: "4.2.19",
-		netty              : "4.1.25.Final",
+		netty              : "4.1.73.Final",
 		scala              : "2.12.6",
 		slf4j              : "1.7.25",
 	]
@@ -73,6 +73,7 @@ sourceSets {
 }
 
 dependencies {
+	compile fileTree(dir: 'libs', include: ['*.jar'])
 	compileOnly(
 		"com.github.emc-mongoose:mongoose-base:${depVersion.mongooseBase}",
 		"com.github.emc-mongoose:mongoose-storage-driver-coop:${depVersion.mongooseStorageDriverCoop}",
@@ -319,16 +320,16 @@ task robotest(type: DockerWaitContainer, dependsOn: dockerStartContainerRobotest
 
 // Code Formatting /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-spotless {
-	format "misc", {
-		target "**/*.gradle", "**/*.js", "**/*.groovy", "**/*.py", "**/*.scala"
-		indentWithTabs()
-		endWithNewline()
-	}
-	java {
-		target "**/*.java"
-		endWithNewline()
-		removeUnusedImports()
-		eclipse().configFile "spotless.eclipseformat.xml"
-	}
-}
+//spotless {
+//	format "misc", {
+//		target "**/*.gradle", "**/*.js", "**/*.groovy", "**/*.py", "**/*.scala"
+//		indentWithTabs()
+//		endWithNewline()
+//	}
+//	java {
+//		target "**/*.java"
+//		endWithNewline()
+//		removeUnusedImports()
+//		eclipse().configFile "spotless.eclipseformat.xml"
+//	}
+//}

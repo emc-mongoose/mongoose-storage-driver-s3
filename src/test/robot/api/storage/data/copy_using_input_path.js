@@ -4,8 +4,22 @@ var sharedConfig = {
 			"limit": {
 				"time": "3m"
 			}
-		}
-	}
+		},
+        "op": {
+            "wait": {
+                "finish": false
+            }
+        }
+    },
+    "output": {
+        "metrics": {
+            "average": {
+                "aggregation": {
+                    "period": 1
+                }
+            }
+        }
+    }
 }
 
 PreconditionLoad

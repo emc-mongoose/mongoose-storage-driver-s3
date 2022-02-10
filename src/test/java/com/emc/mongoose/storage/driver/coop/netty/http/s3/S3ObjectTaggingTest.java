@@ -108,6 +108,7 @@ extends S3StorageDriver<DataItem, DataOperation<DataItem>> {
 			config.val("storage-auth-uid", CREDENTIAL.getUid());
 			config.val("storage-auth-token", null);
 			config.val("storage-auth-secret", CREDENTIAL.getSecret());
+			config.val("storage-auth-version", 2);
 			config.val("storage-driver-threads", 0);
 			config.val("storage-driver-limit-queue-input", 1_000_000);
 			return config;
