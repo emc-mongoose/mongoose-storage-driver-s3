@@ -75,7 +75,7 @@ sourceSets {
 dependencies {
 	compile fileTree(dir: 'libs', include: ['*.jar'])
 	compileOnly(
-		//"com.github.emc-mongoose:mongoose-base:${depVersion.mongooseBase}",
+		"com.github.emc-mongoose:mongoose-base:${depVersion.mongooseBase}",
 		"com.github.emc-mongoose:mongoose-storage-driver-coop:${depVersion.mongooseStorageDriverCoop}",
 		"com.github.emc-mongoose:mongoose-storage-driver-netty:${depVersion.mongooseStorageDriverNetty}",
 		"com.github.emc-mongoose:mongoose-storage-driver-http:${depVersion.mongooseStorageDriverHttp}",
