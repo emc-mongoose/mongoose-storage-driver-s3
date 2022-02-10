@@ -1,3 +1,22 @@
+var sharedConfig = {
+	"load": {
+        "op": {
+            "wait": {
+                "finish": false
+            }
+        }
+    },
+    "output": {
+        "metrics": {
+            "average": {
+                "aggregation": {
+                    "period": 1
+                }
+            }
+        }
+    }
+}
+
 var customHttpHeadersConfig = {
 	"storage" : {
 		"net" : {
@@ -7,9 +26,17 @@ var customHttpHeadersConfig = {
 				}
 			}
 		}
+	},
+	"load": {
+	    "op": {
+	        "wait": {
+	            "finish": false
+	        }
+	    }
 	}
 };
 
 Load
+    .config(sharedConfig)
 	.config(customHttpHeadersConfig)
 	.run()

@@ -1,4 +1,24 @@
+var sharedConfig = {
+	"load": {
+        "op": {
+            "wait": {
+                "finish": false
+            }
+        }
+    },
+    "output": {
+        "metrics": {
+            "average": {
+                "aggregation": {
+                    "period": 1
+                }
+            }
+        }
+    }
+}
+
 PreconditionLoad
+    .config(sharedConfig)
 	.config({
 	"item" : {
 		"output" : {
@@ -9,6 +29,7 @@ PreconditionLoad
 	.run();
 
 ReadLoad
+    .config(sharedConfig)
 	.config({
 	"item" : {
 		"data" : {
