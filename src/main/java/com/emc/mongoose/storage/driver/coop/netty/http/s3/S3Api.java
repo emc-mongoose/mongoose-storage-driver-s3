@@ -20,6 +20,11 @@ public interface S3Api {
 	String KEY_X_AMZ_COPY_SOURCE = PREFIX_KEY_X_AMZ + "copy-source";
 
 	String KEY_X_AMZ_SECURITY_TOKEN = PREFIX_KEY_X_AMZ + "security-token";
+	
+	String AMZ_DATE_HEADER = "x-amz-date";
+	String AMZ_PAYLOAD_HEADER = "x-amz-content-sha256";
+	String AMZ_UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
+	
 
 	AsciiString HEADERS_CANONICAL[] = {
 			HttpHeaderNames.CONTENT_MD5,
