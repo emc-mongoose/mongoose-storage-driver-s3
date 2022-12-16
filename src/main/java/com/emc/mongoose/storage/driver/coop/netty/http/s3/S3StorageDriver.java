@@ -192,7 +192,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			// Extract the AWS region
 			awsRegion = awsMatcher.group(1);
 		} else {
-			awsRegion = "";
+			awsRegion = S3Api.AMZ_DEFAULT_REGION;
 		}
 	}
 
@@ -835,13 +835,20 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 						HttpHeaderNames.AUTHORIZATION,
 						S3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
 			} else if (authVersion == 4) {
+				// Remove port from the host
+				httpHeaders.set(HttpHeaderNames.HOST, httpHeaders.get(HttpHeaderNames.HOST).split(":")[0]);
+				
 				// Set dates
 				Date now = new Date();
 				httpHeaders.set(HttpHeaderNames.DATE, DateUtil.FMT_DATE_RFC1123.format(now));
 				httpHeaders.set(S3Api.AMZ_DATE_HEADER, DateUtil.FMT_DATE_AMAZON.format(now));
 				
-				// Mark payload unsigned
-				httpHeaders.set(S3Api.AMZ_PAYLOAD_HEADER, S3Api.AMZ_UNSIGNED_PAYLOAD);
+				// Set payload header
+				if (Integer.valueOf(httpHeaders.get(HttpHeaderNames.CONTENT_LENGTH)) > 0) {
+					httpHeaders.set(S3Api.AMZ_PAYLOAD_HEADER, S3Api.AMZ_UNSIGNED_PAYLOAD);
+				} else {
+					httpHeaders.set(S3Api.AMZ_PAYLOAD_HEADER, S3Api.AMZ_EMPTY_BODY_SHA256);
+				}
 				
 				final var datetime = httpHeaders.get(S3Api.AMZ_DATE_HEADER);
 				final var date = datetime.substring(0,8); // 8 chars as Pattern("yyyyMMdd") goes
@@ -940,8 +947,11 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		buffCanonical.append('\n');
 		
 		// Don't sign the payload
-		// https://docs.amazonaws.cn/en_us/AmazonS3/latest/API/sig-v4-header-based-auth.html
-		buffCanonical.append(S3Api.AMZ_UNSIGNED_PAYLOAD);
+		if (Integer.valueOf(httpHeaders.get(HttpHeaderNames.CONTENT_LENGTH)) > 0) {
+			buffCanonical.append(S3Api.AMZ_UNSIGNED_PAYLOAD);
+		} else {
+			buffCanonical.append(S3Api.AMZ_EMPTY_BODY_SHA256);
+		}
 		
 		if (Loggers.MSG.isTraceEnabled()) {
 			Loggers.MSG.trace("Canonical representation:\n{}", buffCanonical);
