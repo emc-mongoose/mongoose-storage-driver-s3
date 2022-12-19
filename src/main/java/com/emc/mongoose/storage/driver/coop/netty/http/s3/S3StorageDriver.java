@@ -913,8 +913,21 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		buffCanonical.setLength(0); // reset/clear
 		buffCanonical.append(httpMethod.name());
 		buffCanonical.append('\n');
-		buffCanonical.append(dstUriPath);
-		buffCanonical.append('\n');
+		int queryIndex = dstUriPath.indexOf("?");
+		if (queryIndex != -1) {
+			buffCanonical.append(dstUriPath.substring(0,  queryIndex));
+			buffCanonical.append('\n');
+			// Parse the query string
+			String query = dstUriPath.substring(queryIndex + 1);
+			buffCanonical.append(query);
+			if (!query.contains("=")) {
+				buffCanonical.append('=');
+			}
+		} else {
+			// No query string
+			buffCanonical.append(dstUriPath);
+			buffCanonical.append('\n');
+		}
 		for (final var header : S3Api.HEADERS_CANONICAL_V4) {
 			if (httpHeaders.contains(header)) {
 				for (final var headerValue : httpHeaders.getAll(header)) {
