@@ -23,19 +23,20 @@ jobs:
     needs: build_job
     runs-on: ubuntu-latest
     steps:
-      - env:
+      - name: Check Tag
+        id: check-tag
+        run: |
+             if [[ ${{ github.event.ref }} =~ ^refs/tags/[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+               echo "match=true" >> $GITHUB_OUTPUT
+             fi
+      - name: Release Maven
+        if: steps.check-tag.outputs.match == 'true'
+        env:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
           GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
           GPG_SECRET_KEY_PASSWORD: ${{ secrets.GPG_SECRET_KEY_PASSWORD }}
           GPG_SECRING: ${{ secrets.GPG_SECRING }}
         run: |
-          tag=${GITHUB_REF#refs/*/v}
-          if [[ $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          then
-            echo "Found version tag, releasing to Maven"
-            echo $GPG_SECRING > /tmp/secring.gpg
-            ./gradlew -Psigning.keyId=${GPG_SECRET_KEY} -Psigning.password=${GPG_SECRET_KEY_PASSWORD} -Psigning.secretKeyRingFile=/tmp/secring.gpg -PossrhUsername=${OSSRH_USERNAME} -PossrhPassword=${OSSRH_PASSWORD} publishToNexus closeAndReleaseRepository
-          else
-            echo "No version tag found"
-          fi
+             echo $GPG_SECRING > /tmp/secring.gpg
+             ./gradlew -Psigning.keyId=${GPG_SECRET_KEY} -Psigning.password=${GPG_SECRET_KEY_PASSWORD} -Psigning.secretKeyRingFile=/tmp/secring.gpg -PossrhUsername=${OSSRH_USERNAME} -PossrhPassword=${OSSRH_PASSWORD} publishToNexus closeAndReleaseRepository
