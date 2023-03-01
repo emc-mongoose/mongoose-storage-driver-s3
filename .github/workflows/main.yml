@@ -1,0 +1,41 @@
+on: [push]
+jobs:
+  build_job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+      - uses: gradle/gradle-build-action@v2
+      # chmod and dos2unix for local actions testing
+      - run: |
+           sudo apt update && sudo apt install -y dos2unix
+           chmod +x gradlew && dos2unix gradlew
+           ./gradlew clean jar
+      - uses: actions/upload-artifact@v3
+        with:
+          name: s3-jar
+          path: build/libs/mongoose-*.jar
+  release_to_maven_job:
+    # Release for tags matching the pattern "*.*.*"
+    needs: build_job
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          GPG_SECRET_KEY_PASSWORD: ${{ secrets.GPG_SECRET_KEY_PASSWORD }}
+          GPG_SECRING: ${{ secrets.GPG_SECRING }}
+        run: |
+          tag=${GITHUB_REF#refs/*/v}
+          if [[ $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          then
+            echo "Found version tag, releasing to Maven"
+            echo $GPG_SECRING > /tmp/secring.gpg
+            ./gradlew -Psigning.keyId=${GPG_SECRET_KEY} -Psigning.password=${GPG_SECRET_KEY_PASSWORD} -Psigning.secretKeyRingFile=/tmp/secring.gpg -PossrhUsername=${OSSRH_USERNAME} -PossrhPassword=${OSSRH_PASSWORD} publishToNexus closeAndReleaseRepository
+          else
+            echo "No version tag found"
+          fi
