@@ -10,7 +10,8 @@ jobs:
           java-version: '11'
       - uses: gradle/gradle-build-action@v2
       # chmod and dos2unix for local actions testing
-      - run: |
+      - name: Build JAR
+        run: |
            sudo apt update && sudo apt install -y dos2unix
            chmod +x gradlew && dos2unix gradlew
            ./gradlew clean jar
@@ -34,5 +35,5 @@ jobs:
           GPG_SECRET_KEY_PASSWORD: ${{ secrets.GPG_SECRET_KEY_PASSWORD }}
           GPG_SECRING: ${{ secrets.GPG_SECRING }}
         run: |
-             echo $GPG_SECRING > /tmp/secring.gpg
+             echo $GPG_SECRING | base64 -d > /tmp/secring.gpg
              ./gradlew -Psigning.keyId=${GPG_SECRET_KEY} -Psigning.password=${GPG_SECRET_KEY_PASSWORD} -Psigning.secretKeyRingFile=/tmp/secring.gpg -PossrhUsername=${OSSRH_USERNAME} -PossrhPassword=${OSSRH_PASSWORD} publishToNexus closeAndReleaseRepository
