@@ -61,11 +61,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.parsers.ParserConfigurationException;
@@ -123,6 +127,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	protected final Input<String> taggingContentInput;
 	protected final int authVersion;
 	protected final boolean versioning;
+	protected final String awsRegion;
 
 	public S3StorageDriver(
 					final String stepId,
@@ -179,9 +184,19 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 		authVersion = authVersionTemp;
 		requestAuthTokenFunc = null; // do not use
+		
+		// Look for an AWS endpoint, e.g. "s3.us-east-1.amazonaws.com:80"
+		Pattern awsPattern = Pattern.compile("s3\\.([^\\.]+)\\.amazonaws\\.com:[0-9]+");
+		Matcher awsMatcher = null;
+		if (storageNodeAddrs.length == 1 && (awsMatcher = awsPattern.matcher(storageNodeAddrs[0])).matches()) {
+			// Extract the AWS region
+			awsRegion = awsMatcher.group(1);
+		} else {
+			awsRegion = S3Api.AMZ_DEFAULT_REGION;
+		}
 	}
 
-	static final class SigningKeyCreateFunctionImpl
+	private final class SigningKeyCreateFunctionImpl
 			implements SigningKeyCreateFunction {
 
 		String secret;
@@ -197,18 +212,18 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 	}
 
-	static byte[] HmacSHA256(String data, byte[] key) throws NoSuchAlgorithmException, InvalidKeyException {
+	private byte[] HmacSHA256(String data, byte[] key) throws NoSuchAlgorithmException, InvalidKeyException {
 		Mac mac = Mac.getInstance(S3Api.SIGN_V4_METHOD);
 		mac.init(new SecretKeySpec(key, "RawBytes"));
 		return mac.doFinal(data.getBytes(UTF_8));
 	}
 
-	static byte[] getSignatureKey(String key, String dateStamp) {
+	private byte[] getSignatureKey(String key, String dateStamp) {
 		byte[] kSigning = new byte[0];
 		try {
 			byte[] kSecret = ("AWS4" + key).getBytes(UTF_8);
 			byte[] kDate = HmacSHA256(dateStamp, kSecret);
-			byte[] kRegion = HmacSHA256("", kDate); // region is left empty
+			byte[] kRegion = HmacSHA256(awsRegion, kDate);
 			byte[] kService = HmacSHA256("s3", kRegion);
 			kSigning = HmacSHA256("aws4_request", kService);
 			int[] m = new int[100];
@@ -820,9 +835,24 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 						HttpHeaderNames.AUTHORIZATION,
 						S3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
 			} else if (authVersion == 4) {
-				final var datetime = httpHeaders.get(HttpHeaderNames.DATE);
+				// Remove port from the host
+				httpHeaders.set(HttpHeaderNames.HOST, httpHeaders.get(HttpHeaderNames.HOST).split(":")[0]);
+				
+				// Set dates
+				Date now = new Date();
+				httpHeaders.set(HttpHeaderNames.DATE, DateUtil.FMT_DATE_RFC1123.format(now));
+				httpHeaders.set(S3Api.AMZ_DATE_HEADER, DateUtil.FMT_DATE_AMAZON.format(now));
+				
+				// Set payload header
+				if (Integer.valueOf(httpHeaders.get(HttpHeaderNames.CONTENT_LENGTH)) > 0) {
+					httpHeaders.set(S3Api.AMZ_PAYLOAD_HEADER, S3Api.AMZ_UNSIGNED_PAYLOAD);
+				} else {
+					httpHeaders.set(S3Api.AMZ_PAYLOAD_HEADER, S3Api.AMZ_EMPTY_BODY_SHA256);
+				}
+				
+				final var datetime = httpHeaders.get(S3Api.AMZ_DATE_HEADER);
 				final var date = datetime.substring(0,8); // 8 chars as Pattern("yyyyMMdd") goes
-
+				
 				final var signingKeyCreateFunction = signingKeyCreateFunctionCache.get().
 						computeIfAbsent(secret, SigningKeyCreateFunctionImpl::new);
 				final var signingKey  = signingKeyCache.get().computeIfAbsent(date, signingKeyCreateFunction);
@@ -831,9 +861,8 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 				byte[] encodedhash = THREAD_LOCAL_SHA256.get().digest(
 						canonicalForm.getBytes(StandardCharsets.UTF_8));
 				String stringToSign = "AWS4-HMAC-SHA256\n" + datetime + "\n" + date
-						+ "//s3/aws4_request\n" + bytesToHex(encodedhash);
+						+ "/" + awsRegion + "/s3/aws4_request\n" + bytesToHex(encodedhash);
 				final var sigData = HmacSHA256(stringToSign, signingKey);
-				Loggers.MSG.info("char seq {}", sortedHeaders.keySet());
 				// 240 is an educated guess based on how v4 auth header looks generally
 				StringBuilder sb = new StringBuilder(240);
 				sb.append(S3Api.AUTH_V4_PREFIX)
@@ -841,8 +870,10 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 						.append(uid)
 						.append('/')
 						.append(date)
-						// "//" this is a region required for v4 auth. left empty.
-						.append("//s3/aws4_request,SignedHeaders=")
+						.append("/")
+						.append(awsRegion)
+						.append("/")
+						.append("s3/aws4_request,SignedHeaders=")
 						.append(String.join(";", sortedHeaders.keySet()))
 						.append(",Signature=")
 						.append(bytesToHex(sigData));
@@ -882,8 +913,21 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		buffCanonical.setLength(0); // reset/clear
 		buffCanonical.append(httpMethod.name());
 		buffCanonical.append('\n');
-		buffCanonical.append(dstUriPath);
-		buffCanonical.append('\n');
+		int queryIndex = dstUriPath.indexOf("?");
+		if (queryIndex != -1) {
+			buffCanonical.append(dstUriPath.substring(0,  queryIndex));
+			buffCanonical.append('\n');
+			// Parse the query string
+			String query = dstUriPath.substring(queryIndex + 1);
+			buffCanonical.append(query);
+			if (!query.contains("=")) {
+				buffCanonical.append('=');
+			}
+		} else {
+			// No query string
+			buffCanonical.append(dstUriPath);
+			buffCanonical.append('\n');
+		}
 		for (final var header : S3Api.HEADERS_CANONICAL_V4) {
 			if (httpHeaders.contains(header)) {
 				for (final var headerValue : httpHeaders.getAll(header)) {
@@ -914,14 +958,14 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 
 		buffCanonical.deleteCharAt(buffCanonical.length() - 1); // to remove last ;
 		buffCanonical.append('\n');
-
-		// last line is equivalent of
-		// MessageDigest digest = MessageDigest.getInstance("SHA-256");
-		// byte[] encodedhash = digest.digest("".getBytes(UTF_8));
-		// String hexHash = bytesToHex(encodedhash);
-		// as we never send the hash of the payload, we don't need this to be calculated each time
-		buffCanonical.append("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
-
+		
+		// Don't sign the payload
+		if (Integer.valueOf(httpHeaders.get(HttpHeaderNames.CONTENT_LENGTH)) > 0) {
+			buffCanonical.append(S3Api.AMZ_UNSIGNED_PAYLOAD);
+		} else {
+			buffCanonical.append(S3Api.AMZ_EMPTY_BODY_SHA256);
+		}
+		
 		if (Loggers.MSG.isTraceEnabled()) {
 			Loggers.MSG.trace("Canonical representation:\n{}", buffCanonical);
 		}
