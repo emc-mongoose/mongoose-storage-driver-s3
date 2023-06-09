@@ -20,3 +20,5 @@ hs_err_pid*
 
 # protect the gradle wrapper
 !gradle/wrapper/gradle-wrapper.jar
+/.gradle/
+/build/

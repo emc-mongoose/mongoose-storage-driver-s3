@@ -31,10 +31,10 @@ repositories {
 
 ext {
 	depVersion = [
-		commonsJava: "[1.4.1,)",
+		commonsJava: "2.1.5",
 		disruptor : "3.3.4",
 		jackson: "2.9.1",
-		log4j: "2.8.2",
+		log4j: "2.20.0",
 		netty: "4.1.17.Final",
 		mongoose: "[3.,4.)",
 	]
