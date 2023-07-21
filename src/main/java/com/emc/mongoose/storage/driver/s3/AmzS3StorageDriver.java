@@ -1,5 +1,37 @@
 package com.emc.mongoose.storage.driver.s3;
 
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.ConnectException;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
+import java.util.function.Function;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
+import org.apache.logging.log4j.Level;
+import org.xml.sax.SAXException;
+
+import com.emc.mongoose.api.common.env.DateUtil;
 import com.emc.mongoose.api.common.exception.OmgShootMyFootException;
 import com.emc.mongoose.api.model.data.DataInput;
 import com.emc.mongoose.api.model.io.IoType;
@@ -35,33 +67,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpStatusClass;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.AsciiString;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
-
-import org.apache.logging.log4j.Level;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.ConnectException;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.concurrent.CancellationException;
-import java.util.function.Function;
-import org.xml.sax.SAXException;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  Created by kurila on 01.08.16.
@@ -75,6 +80,11 @@ extends HttpStorageDriverBase<I, O> {
 		BUFF_CANONICAL = ThreadLocal.withInitial(StringBuilder::new),
 		BUCKET_LIST_QUERY = ThreadLocal.withInitial(StringBuilder::new);
 	
+	//for v4 only
+	// TODO: compare to ConcurrentHashMap
+	protected final ThreadLocal<Map<String, SigningKeyCreateFunction>> signingKeyCreateFunctionCache = ThreadLocal.withInitial(HashMap::new);
+	protected final ThreadLocal<Map<String, byte[]>> signingKeyCache = ThreadLocal.withInitial(HashMap::new);
+	// for v2 only
 	private static final ThreadLocal<Map<String, Mac>> MAC_BY_SECRET = ThreadLocal.withInitial(
 		HashMap::new
 	);
@@ -88,6 +98,19 @@ extends HttpStorageDriverBase<I, O> {
 			throw new AssertionError(e);
 		}
 	};
+	
+	// sha256 digest and md5 digest are used for different purposes
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_SHA256 = ThreadLocal.withInitial(
+			() -> {
+				try {
+					return MessageDigest.getInstance("SHA-256");
+				} catch(final NoSuchAlgorithmException e) {
+					throw new AssertionError(e);
+				}
+			}
+	);
+	
+	private int authVersion = 2;
 
 	public AmzS3StorageDriver(
 		final String stepId, final DataInput itemDataInput, final LoadConfig loadConfig,
@@ -95,6 +118,52 @@ extends HttpStorageDriverBase<I, O> {
 	) throws OmgShootMyFootException, InterruptedException {
 		super(stepId, itemDataInput, loadConfig, storageConfig, verifyFlag);
 		requestAuthTokenFunc = null; // do not use
+		
+		// TODO Add system property to set S3 auth version (e.g. java -Ds3.auth.version=2 -jar mongoose.jar ...)
+		String authVersion = System.getProperty("s3.auth.version");
+		if (authVersion != null) {
+			this.authVersion = Integer.valueOf(authVersion);
+			Loggers.MSG.info("Set S3 auth version {}", this.authVersion);
+		}
+	}
+
+	private final class SigningKeyCreateFunctionImpl implements SigningKeyCreateFunction {
+		String secret;
+
+		public SigningKeyCreateFunctionImpl(final String secret) {
+			this.secret = secret;
+		}
+
+		@Override
+		public byte[] apply(final String datestamp) {
+			return getSignatureKey(secret, datestamp);
+		}
+	}
+	
+	private byte[] HmacSHA256(String data, byte[] key) throws NoSuchAlgorithmException, InvalidKeyException {
+		Mac mac = Mac.getInstance(AmzS3Api.SIGN_V4_METHOD);
+		mac.init(new SecretKeySpec(key, "RawBytes"));
+		return mac.doFinal(data.getBytes(UTF_8));
+	}
+
+	private byte[] getSignatureKey(String key, String dateStamp) {
+		byte[] kSigning = new byte[0];
+		try {
+			byte[] kSecret = ("AWS4" + key).getBytes(UTF_8);
+			byte[] kDate = HmacSHA256(dateStamp, kSecret);
+			byte[] kRegion = HmacSHA256(AmzS3Api.AMZ_DEFAULT_REGION, kDate);
+			byte[] kService = HmacSHA256("s3", kRegion);
+			kSigning = HmacSHA256("aws4_request", kService);
+			int[] m = new int[100];
+			for (int i = 0; i < kSigning.length; i++) {
+				m[i] = kSigning[i] & 0xFF;
+			}
+			Loggers.MSG.info("sign key", m);
+		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
+			Loggers.MSG.warn("Couldn't complete HmacSHA256 for auth v4. Either secret is incorrect " +
+					"or used algorithm doesn't exist. \n{}", e.getMessage());
+		}
+		return kSigning;
 	}
 	
 	@Override
@@ -577,6 +646,17 @@ extends HttpStorageDriverBase<I, O> {
 		httpHeaders.set(AmzS3Api.KEY_X_AMZ_COPY_SOURCE, srcPath);
 	}
 	
+	private static final byte[] HEX_ARRAY = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
+	protected static String bytesToHex(byte[] bytes) {
+		byte[] hexChars = new byte[bytes.length * 2];
+		for (int j = 0; j < bytes.length; j++) {
+			int v = bytes[j] & 0xFF;
+			hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+			hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+		}
+		return new String(hexChars, StandardCharsets.UTF_8);
+	}
+	
 	@Override
 	protected final void applyAuthHeaders(
 		final HttpHeaders httpHeaders, final HttpMethod httpMethod, final String dstUriPath,
@@ -597,14 +677,153 @@ extends HttpStorageDriverBase<I, O> {
 		if(uid == null || secret == null) {
 			return;
 		}
-		final Mac mac = MAC_BY_SECRET.get().computeIfAbsent(secret, GET_MAC_BY_SECRET);
-		final String canonicalForm = getCanonical(httpHeaders, httpMethod, dstUriPath);
-		final byte sigData[] = mac.doFinal(canonicalForm.getBytes());
-		httpHeaders.set(
-			HttpHeaderNames.AUTHORIZATION,
-			AmzS3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData)
-		);
+		
+		try {
+			if (authVersion == 2) {
+				final var mac = MAC_BY_SECRET.get().computeIfAbsent(secret, GET_MAC_BY_SECRET);
+				final var canonicalForm = getCanonical(httpHeaders, httpMethod, dstUriPath);
+				final var sigData = mac.doFinal(canonicalForm.getBytes());
+				httpHeaders.set(
+						HttpHeaderNames.AUTHORIZATION,
+						AmzS3Api.AUTH_PREFIX + uid + ':' + BASE64_ENCODER.encodeToString(sigData));
+			} else if (authVersion == 4) {
+				// Remove port from the host
+				httpHeaders.set(HttpHeaderNames.HOST, httpHeaders.get(HttpHeaderNames.HOST).split(":")[0]);
+				
+				// Set dates
+				Date now = new Date();
+				httpHeaders.set(HttpHeaderNames.DATE, DateUtil.FMT_DATE_RFC1123.format(now));
+				httpHeaders.set(AmzS3Api.AMZ_DATE_HEADER, AmzS3Api.FMT_DATE_AMAZON.format(now));
+				
+				// Set payload header
+				if (Integer.valueOf(httpHeaders.get(HttpHeaderNames.CONTENT_LENGTH)) > 0) {
+					httpHeaders.set(AmzS3Api.AMZ_PAYLOAD_HEADER, AmzS3Api.AMZ_UNSIGNED_PAYLOAD);
+				} else {
+					httpHeaders.set(AmzS3Api.AMZ_PAYLOAD_HEADER, AmzS3Api.AMZ_EMPTY_BODY_SHA256);
+				}
+				
+				final var datetime = httpHeaders.get(AmzS3Api.AMZ_DATE_HEADER);
+				final var date = datetime.substring(0,8); // 8 chars as Pattern("yyyyMMdd") goes
+				
+				final var signingKeyCreateFunction = signingKeyCreateFunctionCache.get().
+						computeIfAbsent(secret, SigningKeyCreateFunctionImpl::new);
+				final var signingKey  = signingKeyCache.get().computeIfAbsent(date, signingKeyCreateFunction);
+				final Map<String, String> sortedHeaders = getNonCanonicalHeaders(httpHeaders);
+				final var canonicalForm = getCanonicalV4(httpHeaders, sortedHeaders, httpMethod, dstUriPath);
+				byte[] encodedhash = THREAD_LOCAL_SHA256.get().digest(
+						canonicalForm.getBytes(StandardCharsets.UTF_8));
+				String stringToSign = "AWS4-HMAC-SHA256\n" + datetime + "\n" + date
+						+ "/" + AmzS3Api.AMZ_DEFAULT_REGION + "/s3/aws4_request\n" + bytesToHex(encodedhash);
+				final var sigData = HmacSHA256(stringToSign, signingKey);
+				// 240 is an educated guess based on how v4 auth header looks generally
+				StringBuilder sb = new StringBuilder(240);
+				sb.append(AmzS3Api.AUTH_V4_PREFIX)
+						.append("Credential=")
+						.append(uid)
+						.append('/')
+						.append(date)
+						.append("/")
+						.append(AmzS3Api.AMZ_DEFAULT_REGION)
+						.append("/")
+						.append("s3/aws4_request,SignedHeaders=")
+						.append(String.join(";", sortedHeaders.keySet()))
+						.append(",Signature=")
+						.append(bytesToHex(sigData));
+				httpHeaders.set(
+						HttpHeaderNames.AUTHORIZATION, sb.toString());
+			} else {
+				throw new AssertionError("Not implemented yet");
+			}
+		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
+			Loggers.MSG.warn("Couldn't complete HmacSHA256 for auth v4. Either secret is incorrect " +
+					"or used algorithm doesn't exist. \n{}", e.getMessage());
+		}
 	}
+	
+	protected Map<String,String> getNonCanonicalHeaders(final HttpHeaders httpHeaders) {
+		String headerName;
+		final Map<String, String> sortedHeaders = new TreeMap<>();
+		if (sharedHeaders != null) {
+			for (final var header : sharedHeaders) {
+				headerName = header.getKey().toLowerCase();
+				if (headerName.startsWith(AmzS3Api.PREFIX_KEY_X_AMZ)) {
+					sortedHeaders.put(headerName, header.getValue());
+				}
+			}
+		}
+		for (final var header : httpHeaders) {
+			headerName = header.getKey().toLowerCase();
+			if (headerName.startsWith(AmzS3Api.PREFIX_KEY_X_AMZ)) {
+				sortedHeaders.put(headerName, header.getValue());
+			}
+		}
+		return sortedHeaders;
+	}
+	protected String getCanonicalV4(final HttpHeaders httpHeaders, final Map<String, String> sortedNonCanonicalHeaders,
+									final HttpMethod httpMethod, final String dstUriPath) {
+		final var buffCanonical = BUFF_CANONICAL.get();
+		buffCanonical.setLength(0); // reset/clear
+		buffCanonical.append(httpMethod.name());
+		buffCanonical.append('\n');
+		int queryIndex = dstUriPath.indexOf("?");
+		if (queryIndex != -1) {
+			buffCanonical.append(dstUriPath.substring(0,  queryIndex));
+			buffCanonical.append('\n');
+			// Parse the query string
+			String query = dstUriPath.substring(queryIndex + 1);
+			buffCanonical.append(query);
+			if (!query.contains("=")) {
+				buffCanonical.append('=');
+			}
+		} else {
+			// No query string
+			buffCanonical.append(dstUriPath);
+			buffCanonical.append('\n');
+		}
+		for (final var header : AmzS3Api.HEADERS_CANONICAL_V4) {
+			if (httpHeaders.contains(header)) {
+				for (final var headerValue : httpHeaders.getAll(header)) {
+					sortedNonCanonicalHeaders.put(header.toString(), headerValue);
+				}
+			} else if (sharedHeaders != null && sharedHeaders.contains(header)) {
+				for (final var headerValue : sharedHeaders.getAll(header)) {
+					sortedNonCanonicalHeaders.put(header.toString(), headerValue);
+				}
+			}
+		}
+
+		// x-amz-*
+		for (final var sortedHeader : sortedNonCanonicalHeaders.entrySet()) {
+			buffCanonical
+					.append('\n')
+					.append(sortedHeader.getKey())
+					.append(':')
+					.append(sortedHeader.getValue());
+		}
+		buffCanonical.append("\n\n");
+
+		for (final var sortedHeader : sortedNonCanonicalHeaders.keySet()) {
+			buffCanonical
+					.append(sortedHeader)
+					.append(';');
+		}
+
+		buffCanonical.deleteCharAt(buffCanonical.length() - 1); // to remove last ;
+		buffCanonical.append('\n');
+		
+		// Don't sign the payload
+		if (Integer.valueOf(httpHeaders.get(HttpHeaderNames.CONTENT_LENGTH)) > 0) {
+			buffCanonical.append(AmzS3Api.AMZ_UNSIGNED_PAYLOAD);
+		} else {
+			buffCanonical.append(AmzS3Api.AMZ_EMPTY_BODY_SHA256);
+		}
+		
+		if (Loggers.MSG.isTraceEnabled()) {
+			Loggers.MSG.trace("Canonical representation:\n{}", buffCanonical);
+		}
+		return buffCanonical.toString();
+	}
+
 	
 	protected String getCanonical(
 		final HttpHeaders httpHeaders, final HttpMethod httpMethod, final String dstUriPath
