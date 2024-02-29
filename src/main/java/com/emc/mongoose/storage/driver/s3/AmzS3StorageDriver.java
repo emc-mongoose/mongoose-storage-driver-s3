@@ -111,6 +111,7 @@ extends HttpStorageDriverBase<I, O> {
 	);
 	
 	private int authVersion = 2;
+	private boolean validateNewPaths = true;
 
 	public AmzS3StorageDriver(
 		final String stepId, final DataInput itemDataInput, final LoadConfig loadConfig,
@@ -124,6 +125,13 @@ extends HttpStorageDriverBase<I, O> {
 		if (authVersion != null) {
 			this.authVersion = Integer.valueOf(authVersion);
 			Loggers.MSG.info("Set S3 auth version {}", this.authVersion);
+		}
+
+		// TODO Add system property to disable validating new paths (e.g. java -Dvalidate.new.paths=false -jar mongoose.jar ...)
+		String validateNewPaths = System.getProperty("validate.new.paths");
+		if (validateNewPaths != null) {
+			this.validateNewPaths = Boolean.valueOf(validateNewPaths);
+			Loggers.MSG.info("Set validate new paths to {}", this.validateNewPaths);
 		}
 	}
 
@@ -168,7 +176,10 @@ extends HttpStorageDriverBase<I, O> {
 	
 	@Override
 	protected String requestNewPath(final String path) {
-
+		if (!validateNewPaths) {
+			return path;
+		}
+		
 		// check the destination bucket if it exists w/ HEAD request
 		final String nodeAddr = storageNodeAddrs[0];
 		HttpHeaders reqHeaders = new DefaultHttpHeaders();
