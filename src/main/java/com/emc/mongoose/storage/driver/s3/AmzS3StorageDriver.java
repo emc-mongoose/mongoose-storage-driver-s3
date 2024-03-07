@@ -15,11 +15,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import javax.crypto.Mac;
@@ -74,20 +74,17 @@ import io.netty.util.AsciiString;
 public class AmzS3StorageDriver<I extends Item, O extends IoTask<I>>
 extends HttpStorageDriverBase<I, O> {
 	
+
 	private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
 	private static final ThreadLocal<SAXParser> THREAD_LOCAL_XML_PARSER = new ThreadLocal<>();
 	private static final ThreadLocal<StringBuilder>
-		BUFF_CANONICAL = ThreadLocal.withInitial(StringBuilder::new),
 		BUCKET_LIST_QUERY = ThreadLocal.withInitial(StringBuilder::new);
 	
-	//for v4 only
-	// TODO: compare to ConcurrentHashMap
-	protected final ThreadLocal<Map<String, SigningKeyCreateFunction>> signingKeyCreateFunctionCache = ThreadLocal.withInitial(HashMap::new);
-	protected final ThreadLocal<Map<String, byte[]>> signingKeyCache = ThreadLocal.withInitial(HashMap::new);
+	// for v4 only
+	private static final ConcurrentHashMap<String, SigningKeyCreateFunction> signingKeyCreateFunctionCache = new ConcurrentHashMap<>();
+	private static final ConcurrentHashMap<String, byte[]> signingKeyCache = new ConcurrentHashMap<>();
 	// for v2 only
-	private static final ThreadLocal<Map<String, Mac>> MAC_BY_SECRET = ThreadLocal.withInitial(
-		HashMap::new
-	);
+	private static final ConcurrentHashMap<String, Mac> MAC_BY_SECRET = new ConcurrentHashMap<>();
 	private static final Function<String, Mac> GET_MAC_BY_SECRET = secret -> {
 		final SecretKeySpec secretKey = new SecretKeySpec(secret.getBytes(UTF_8), AmzS3Api.SIGN_METHOD);
 		try {
@@ -99,17 +96,6 @@ extends HttpStorageDriverBase<I, O> {
 		}
 	};
 	
-	// sha256 digest and md5 digest are used for different purposes
-	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_SHA256 = ThreadLocal.withInitial(
-			() -> {
-				try {
-					return MessageDigest.getInstance("SHA-256");
-				} catch(final NoSuchAlgorithmException e) {
-					throw new AssertionError(e);
-				}
-			}
-	);
-	
 	private int authVersion = 2;
 	private boolean validateNewPaths = true;
 
@@ -120,7 +106,7 @@ extends HttpStorageDriverBase<I, O> {
 		super(stepId, itemDataInput, loadConfig, storageConfig, verifyFlag);
 		requestAuthTokenFunc = null; // do not use
 		
-		// TODO Add system property to set S3 auth version (e.g. java -Ds3.auth.version=2 -jar mongoose.jar ...)
+		// TODO Add system property to set S3 auth version (e.g. java -Ds3.auth.version=4 -jar mongoose.jar ...)
 		String authVersion = System.getProperty("s3.auth.version");
 		if (authVersion != null) {
 			this.authVersion = Integer.valueOf(authVersion);
@@ -691,7 +677,7 @@ extends HttpStorageDriverBase<I, O> {
 		
 		try {
 			if (authVersion == 2) {
-				final var mac = MAC_BY_SECRET.get().computeIfAbsent(secret, GET_MAC_BY_SECRET);
+				final var mac = computeIfAbsent(MAC_BY_SECRET, secret, GET_MAC_BY_SECRET);
 				final var canonicalForm = getCanonical(httpHeaders, httpMethod, dstUriPath);
 				final var sigData = mac.doFinal(canonicalForm.getBytes());
 				httpHeaders.set(
@@ -716,12 +702,11 @@ extends HttpStorageDriverBase<I, O> {
 				final var datetime = httpHeaders.get(AmzS3Api.AMZ_DATE_HEADER);
 				final var date = datetime.substring(0,8); // 8 chars as Pattern("yyyyMMdd") goes
 				
-				final var signingKeyCreateFunction = signingKeyCreateFunctionCache.get().
-						computeIfAbsent(secret, SigningKeyCreateFunctionImpl::new);
-				final var signingKey  = signingKeyCache.get().computeIfAbsent(date, signingKeyCreateFunction);
+				final var signingKeyCreateFunction = computeIfAbsent(signingKeyCreateFunctionCache, secret, SigningKeyCreateFunctionImpl::new);
+				final var signingKey  = computeIfAbsent(signingKeyCache, date, signingKeyCreateFunction);
 				final Map<String, String> sortedHeaders = getNonCanonicalHeaders(httpHeaders);
 				final var canonicalForm = getCanonicalV4(httpHeaders, sortedHeaders, httpMethod, dstUriPath);
-				byte[] encodedhash = THREAD_LOCAL_SHA256.get().digest(
+				byte[] encodedhash = MessageDigest.getInstance("SHA-256").digest(
 						canonicalForm.getBytes(StandardCharsets.UTF_8));
 				String stringToSign = "AWS4-HMAC-SHA256\n" + datetime + "\n" + date
 						+ "/" + AmzS3Api.AMZ_DEFAULT_REGION + "/s3/aws4_request\n" + bytesToHex(encodedhash);
@@ -772,8 +757,7 @@ extends HttpStorageDriverBase<I, O> {
 	}
 	protected String getCanonicalV4(final HttpHeaders httpHeaders, final Map<String, String> sortedNonCanonicalHeaders,
 									final HttpMethod httpMethod, final String dstUriPath) {
-		final var buffCanonical = BUFF_CANONICAL.get();
-		buffCanonical.setLength(0); // reset/clear
+		final var buffCanonical = new StringBuilder();
 		buffCanonical.append(httpMethod.name());
 		buffCanonical.append('\n');
 		int queryIndex = dstUriPath.indexOf("?");
@@ -839,8 +823,7 @@ extends HttpStorageDriverBase<I, O> {
 	protected String getCanonical(
 		final HttpHeaders httpHeaders, final HttpMethod httpMethod, final String dstUriPath
 	) {
-		final StringBuilder buffCanonical = BUFF_CANONICAL.get();
-		buffCanonical.setLength(0); // reset/clear
+		final StringBuilder buffCanonical = new StringBuilder();
 		buffCanonical.append(httpMethod.name());
 		
 		for(final AsciiString headerName : AmzS3Api.HEADERS_CANONICAL) {
@@ -886,6 +869,16 @@ extends HttpStorageDriverBase<I, O> {
 		}
 		
 		return buffCanonical.toString();
+	}
+
+	private <K, V> V computeIfAbsent(ConcurrentHashMap<K, V> map, K key, Function<? super K, ? extends V> func) {
+		// Avoid locking on computeIfAbsent with older JDKs
+		V value = map.get(key);
+		if (value != null) {
+			return value;
+		} else {
+			return map.computeIfAbsent(key, func);
+		}
 	}
 	
 	@Override
