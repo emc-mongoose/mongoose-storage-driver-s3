@@ -623,8 +623,9 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	// TODO Handle other areas where applyAuthHeaders() is called
 	@Override
 	protected void applyChecksum(final O op, final HttpHeaders httpHeaders) {
-		if (checksumAlgorithm == null) { return; }
-		if (!(op.item() instanceof DataItem)) { return; }
+		if (checksumAlgorithm == null || !(op.item() instanceof DataItem)) {
+			return;
+		}
 
 		AMZChecksum amzChecksum = AMZChecksum.valueOf(checksumAlgorithm.toUpperCase());
 		var dataItem = (DataItem) op.item();
