@@ -4,6 +4,9 @@
 storage:
   auth:
     version: 2
+  checksum:
+    enabled: false
+    algorithm: md5
   object:
       fsAccess: false
       tagging:
