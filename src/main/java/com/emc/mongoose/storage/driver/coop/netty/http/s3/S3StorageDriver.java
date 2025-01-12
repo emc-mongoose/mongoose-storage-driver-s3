@@ -622,7 +622,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	// TODO Handle objectTaggingRequest()
 	// TODO Handle other areas where applyAuthHeaders() is called
 	@Override
-	protected void applyChecksum(final O op, final HttpHeaders httpHeaders) {
+	protected void applyChecksum(final HttpHeaders httpHeaders, final O op) {
 		if (checksumAlgorithm == null || !(op.item() instanceof DataItem)) {
 			return;
 		}

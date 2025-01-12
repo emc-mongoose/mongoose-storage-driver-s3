@@ -156,6 +156,8 @@ docker run \
 | storage-object-tagging-enabled                 | Flag | false | Work (PUT/GET/DELETE) with object tagging or not (default)
 | storage-object-tagging-tags                    | Map  | {}    | Map of name-value tags, effective only for the `UPDATE` operation when tagging is enabled
 | storage-object-versioning                      | Flag | false | Specifies whether the versioning storage feature is used or not
+| storage-checksum-enabled                       | Flag | false | Pass checksum to server on PUT?
+| storage-checksum-algorithm                     | String | md5 | S3 checksum algorithm: [md5, crc32, crc32c, sha1, sha256]
 
 ### 3.2. Other Options
 
