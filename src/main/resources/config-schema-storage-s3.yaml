@@ -3,6 +3,9 @@
 storage:
   auth:
     version: int
+  checksum:
+    enabled: boolean
+    algorithm: string
   object:
       fsAccess: boolean
       tagging:

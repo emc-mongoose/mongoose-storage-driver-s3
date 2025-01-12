@@ -5,6 +5,8 @@ import io.netty.util.AsciiString;
 import io.netty.util.AttributeKey;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
 Created by kurila on 02.08.16.
@@ -75,4 +77,15 @@ public interface S3Api {
 	String QNAME_ITEM_ID = "Key";
 	String QNAME_ITEM_SIZE = "Size";
 	String QNAME_IS_TRUNCATED = "IsTruncated";
+
+	String AMZ_CHECKSUM_PREFIX = "x-amz-checksum-";
+	enum AMZChecksum {
+		MD5, CRC32, CRC32C, SHA1, SHA256;
+	}
+	static String amzChecksumRegex() {
+		return String.format("^(%s)$", Arrays.stream(AMZChecksum.values())
+				.map(Enum::name)
+				.map(String::toLowerCase)
+				.collect(Collectors.joining("|")));
+	}
 }

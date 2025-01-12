@@ -33,6 +33,7 @@ import com.emc.mongoose.base.logging.LogUtil;
 import com.emc.mongoose.base.logging.Loggers;
 import com.emc.mongoose.base.storage.Credential;
 import com.emc.mongoose.storage.driver.coop.netty.http.HttpStorageDriverBase;
+import com.emc.mongoose.storage.driver.coop.netty.http.s3.S3Api.AMZChecksum;
 import com.github.akurilov.commons.io.Input;
 import com.github.akurilov.confuse.Config;
 import io.netty.buffer.ByteBufInputStream;
@@ -55,6 +56,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
@@ -69,6 +71,9 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.CRC32;
+import java.util.zip.CRC32C;
+import java.util.zip.Checksum;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -122,12 +127,64 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			}
 	);
 
+	// Additional S3 checksums
+	// https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/s3-checksums.html
+	// https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
+	// https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
+	static class ChecksumMessageDigest extends MessageDigest {
+		private final Checksum checksum;
+
+		public ChecksumMessageDigest(Checksum checksum, String algorithm) {
+			super(algorithm);
+			this.checksum = checksum;
+		}
+
+		@Override
+		protected void engineUpdate(byte input) {
+			checksum.update(input);
+		}
+
+		@Override
+		protected void engineUpdate(byte[] input, int offset, int len) {
+			checksum.update(input, offset, len);
+		}
+
+		@Override
+		protected byte[] engineDigest() {
+			ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+			buffer.putInt((int) (checksum.getValue() & 0xFFFFFFFFL)); // Amazon is expecting this
+			return buffer.array();
+		}
+
+		@Override
+		protected void engineReset() {
+			checksum.reset();
+		}
+	}
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_CRC32 = ThreadLocal.withInitial(
+			() -> {
+				return new ChecksumMessageDigest(new CRC32(), "CRC32");
+			});
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_CRC32C = ThreadLocal.withInitial(
+			() -> {
+				return new ChecksumMessageDigest(new CRC32C(), "CRC32C");
+			});
+	private static final ThreadLocal<MessageDigest> THREAD_LOCAL_SHA1 = ThreadLocal.withInitial(
+			() -> {
+				try {
+					return MessageDigest.getInstance("SHA-1");
+				} catch (NoSuchAlgorithmException e) {
+					throw new AssertionError(e);
+				}
+			});
+
 	protected final boolean fsAccess;
 	protected final boolean taggingEnabled;
 	protected final Input<String> taggingContentInput;
 	protected final int authVersion;
 	protected final boolean versioning;
 	protected final String awsRegion;
+	protected final String checksumAlgorithm;
 
 	public S3StorageDriver(
 					final String stepId,
@@ -185,6 +242,17 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		authVersion = authVersionTemp;
 		requestAuthTokenFunc = null; // do not use
 		
+		// Validate the checksum algorithm
+		if (storageConfig.boolVal("checksum-enabled")) {
+			checksumAlgorithm = storageConfig.stringVal("checksum-algorithm");
+			if (!Pattern.matches(S3Api.amzChecksumRegex(), checksumAlgorithm)) {
+				throw new IllegalArgumentException("Invalid checksum algorithm: " + checksumAlgorithm);
+			}
+			Loggers.MSG.info("Checksum algorithm: {}", checksumAlgorithm);
+		} else {
+			checksumAlgorithm = null;
+		}
+
 		// Look for an AWS endpoint, e.g. "s3.us-east-1.amazonaws.com:80"
 		Pattern awsPattern = Pattern.compile("s3\\.([^\\.]+)\\.amazonaws\\.com:[0-9]+");
 		Matcher awsMatcher = null;
@@ -548,6 +616,82 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			return itemName;
 		} else {
 			return SLASH + itemName;
+		}
+	}
+
+	// TODO Handle objectTaggingRequest()
+	// TODO Handle other areas where applyAuthHeaders() is called
+	@Override
+	protected void applyChecksum(final HttpHeaders httpHeaders, final O op) {
+		if (checksumAlgorithm == null || !(op.item() instanceof DataItem)) {
+			return;
+		}
+
+		AMZChecksum amzChecksum = AMZChecksum.valueOf(checksumAlgorithm.toUpperCase());
+		var dataItem = (DataItem) op.item();
+
+		// Select digest
+		MessageDigest digest = null;
+		switch (amzChecksum) {
+			case MD5:
+				digest = THREAD_LOCAL_MD5.get();
+				break;
+			case CRC32:
+				digest = THREAD_LOCAL_CRC32.get();
+				break;
+			case CRC32C:
+				digest = THREAD_LOCAL_CRC32C.get();
+				break;
+			case SHA1:
+				digest = THREAD_LOCAL_SHA1.get();
+				break;
+			case SHA256:
+				digest = THREAD_LOCAL_SHA256.get();
+				break;
+			default:
+				break;
+		}
+
+		try {
+			// Reset the digest
+			digest.reset();
+
+			// Allocate temp buffer
+			ByteBuffer dst = ByteBuffer.allocate(64 * 1024);
+			int bytesRead = 0;
+			String checksum = null;
+
+			while (true) {
+				// Limit to remaining bytes if buffer capacity exceeds data item size
+				if (bytesRead + dst.capacity() > dataItem.size()) {
+					dst.limit((int) dataItem.size() - bytesRead);
+				}
+
+				// Read and update digest
+				bytesRead += dataItem.read(dst);
+				dst.flip();
+				digest.update(dst);
+				dst.clear();
+
+				// Compute checksum and exit when entire data item read
+				if (bytesRead == dataItem.size()) {
+					byte[] checksumBytes = digest.digest();
+					checksum = BASE64_ENCODER.encodeToString(checksumBytes);
+					break;
+				}
+			}
+
+			// Add checksum header
+			if (amzChecksum == AMZChecksum.MD5) {
+				httpHeaders.set(HttpHeaderNames.CONTENT_MD5, checksum);
+			} else {
+				httpHeaders.set(S3Api.AMZ_CHECKSUM_PREFIX + amzChecksum.toString().toLowerCase(), checksum);
+			}
+		} catch (IOException e) {
+			Loggers.ERR.info("Unable to compute checksum: {}", e.getMessage());
+		} finally {
+			// Always reset the data item
+			dataItem.reset();
 		}
 	}
 
