@@ -702,7 +702,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		String checksum = null;
 		if (checksumCache) {
 			if (cachedChecksum == null) {
-				synchronized(S3StorageDriver.class) {
+				synchronized (S3StorageDriver.class) {
 					if (cachedChecksum == null) {
 						cachedChecksum = computeChecksum(amzChecksum, dataItem);
 					}
