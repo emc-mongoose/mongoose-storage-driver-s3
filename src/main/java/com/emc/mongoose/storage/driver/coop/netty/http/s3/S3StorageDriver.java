@@ -185,6 +185,12 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	protected final boolean versioning;
 	protected final String awsRegion;
 	protected final String checksumAlgorithm;
+	protected final boolean checksumCache;
+
+	// This should only be used with --item-data-input-file
+	// The idea here is to avoid client overhead due to computing the checksum
+	// Force the checksum to be cached (lock on first compute)
+	private String cachedChecksum = null;
 
 	public S3StorageDriver(
 					final String stepId,
@@ -252,6 +258,8 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		} else {
 			checksumAlgorithm = null;
 		}
+
+		checksumCache = storageConfig.boolVal("cache-enabled");
 
 		// Look for an AWS endpoint, e.g. "s3.us-east-1.amazonaws.com:80"
 		Pattern awsPattern = Pattern.compile("s3\\.([^\\.]+)\\.amazonaws\\.com:[0-9]+");
@@ -619,17 +627,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		}
 	}
 
-	// TODO Handle objectTaggingRequest()
-	// TODO Handle other areas where applyAuthHeaders() is called
-	@Override
-	protected void applyChecksum(final HttpHeaders httpHeaders, final O op) {
-		if (checksumAlgorithm == null || !(op.item() instanceof DataItem)) {
-			return;
-		}
-
-		AMZChecksum amzChecksum = AMZChecksum.valueOf(checksumAlgorithm.toUpperCase());
-		var dataItem = (DataItem) op.item();
-
+	private String computeChecksum(AMZChecksum amzChecksum, DataItem dataItem) {
 		// Select digest
 		MessageDigest digest = null;
 		switch (amzChecksum) {
@@ -652,6 +650,8 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 				break;
 		}
 
+		String checksum = null;
+
 		try {
 			// Reset the digest
 			digest.reset();
@@ -659,8 +659,6 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			// Allocate temp buffer
 			ByteBuffer dst = ByteBuffer.allocate(64 * 1024);
 			int bytesRead = 0;
-			String checksum = null;
-
 			while (true) {
 				// Limit to remaining bytes if buffer capacity exceeds data item size
 				if (bytesRead + dst.capacity() > dataItem.size()) {
@@ -680,18 +678,48 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 					break;
 				}
 			}
-
-			// Add checksum header
-			if (amzChecksum == AMZChecksum.MD5) {
-				httpHeaders.set(HttpHeaderNames.CONTENT_MD5, checksum);
-			} else {
-				httpHeaders.set(S3Api.AMZ_CHECKSUM_PREFIX + amzChecksum.toString().toLowerCase(), checksum);
-			}
 		} catch (IOException e) {
 			Loggers.ERR.info("Unable to compute checksum: {}", e.getMessage());
 		} finally {
 			// Always reset the data item
 			dataItem.reset();
+		}
+
+		return checksum;
+	}
+
+	// TODO Handle objectTaggingRequest()
+	// TODO Handle other areas where applyAuthHeaders() is called
+	@Override
+	protected void applyChecksum(final HttpHeaders httpHeaders, final O op) {
+		if (checksumAlgorithm == null || !(op.item() instanceof DataItem)) {
+			return;
+		}
+
+		AMZChecksum amzChecksum = AMZChecksum.valueOf(checksumAlgorithm.toUpperCase());
+		var dataItem = (DataItem) op.item();
+
+		String checksum = null;
+		if (checksumCache) {
+			if (cachedChecksum == null) {
+				synchronized(S3StorageDriver.class) {
+					if (cachedChecksum == null) {
+						cachedChecksum = computeChecksum(amzChecksum, dataItem);
+					}
+				}
+			}
+			checksum = cachedChecksum;
+		} else {
+			checksum = computeChecksum(amzChecksum, dataItem);
+		}
+
+		// Add checksum header
+		if (checksum != null) {
+			if (amzChecksum == AMZChecksum.MD5) {
+				httpHeaders.set(HttpHeaderNames.CONTENT_MD5, checksum);
+			} else {
+				httpHeaders.set(S3Api.AMZ_CHECKSUM_PREFIX + amzChecksum.toString().toLowerCase(), checksum);
+			}
 		}
 	}
 

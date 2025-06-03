@@ -6,6 +6,8 @@ storage:
   checksum:
     enabled: boolean
     algorithm: string
+    cache:
+      enabled: boolean
   object:
       fsAccess: boolean
       tagging:
