@@ -259,7 +259,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 			checksumAlgorithm = null;
 		}
 
-		checksumCache = storageConfig.boolVal("cache-enabled");
+		checksumCache = storageConfig.boolVal("checksum-cache-enabled");
 
 		// Look for an AWS endpoint, e.g. "s3.us-east-1.amazonaws.com:80"
 		Pattern awsPattern = Pattern.compile("s3\\.([^\\.]+)\\.amazonaws\\.com:[0-9]+");
