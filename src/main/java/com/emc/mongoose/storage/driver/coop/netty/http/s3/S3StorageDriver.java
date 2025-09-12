@@ -251,7 +251,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 		// Validate the checksum algorithm
 		if (storageConfig.boolVal("checksum-enabled")) {
 			checksumAlgorithm = storageConfig.stringVal("checksum-algorithm");
-			if (!Pattern.matches(S3Api.amzChecksumRegex(), checksumAlgorithm)) {
+			if (!Pattern.matches(S3Api.amzChecksumRegex(), checksumAlgorithm.toLowerCase())) {
 				throw new IllegalArgumentException("Invalid checksum algorithm: " + checksumAlgorithm);
 			}
 			Loggers.MSG.info("Checksum algorithm: {}", checksumAlgorithm);
@@ -701,6 +701,7 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 
 		String checksum = null;
 		if (checksumCache) {
+			dataItem.offset(0); // Force offset to 0
 			if (cachedChecksum == null) {
 				synchronized (S3StorageDriver.class) {
 					if (cachedChecksum == null) {
@@ -964,6 +965,9 @@ public class S3StorageDriver<I extends Item, O extends Operation<I>>
 	protected final void applyCopyHeaders(final HttpHeaders httpHeaders, final String srcPath)
 					throws URISyntaxException {
 		httpHeaders.set(S3Api.KEY_X_AMZ_COPY_SOURCE, srcPath);
+		if (checksumAlgorithm != null) {
+			httpHeaders.set(S3Api.AMZ_CHECKSUM_ALGORITHM, checksumAlgorithm);
+		}
 	}
 
 	private static final byte[] HEX_ARRAY = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);

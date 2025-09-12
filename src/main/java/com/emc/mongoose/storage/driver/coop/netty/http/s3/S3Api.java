@@ -79,6 +79,7 @@ public interface S3Api {
 	String QNAME_IS_TRUNCATED = "IsTruncated";
 
 	String AMZ_CHECKSUM_PREFIX = "x-amz-checksum-";
+	String AMZ_CHECKSUM_ALGORITHM = "x-amz-checksum-algorithm";
 	enum AMZChecksum {
 		MD5, CRC32, CRC32C, SHA1, SHA256;
 	}
